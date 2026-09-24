@@ -1,0 +1,12 @@
+{"label":"programming","prompt":"Write a Python function to sort a list.","completion":" Use sorted(values) to return a new sorted list.","expected_pools":["expert_00_programming"]}
+{"label":"programming_repeat","prompt":"Explain how a Python generator uses yield.","expected_pools":["expert_00_programming"]}
+{"label":"systems","prompt":"Explain Linux kernel scheduling and TCP networking.","expected_pools":["expert_01_systems"]}
+{"label":"ai","prompt":"Explain gradient descent in a neural network implemented with PyTorch.","expected_pools":["expert_02_ai","expert_03_math"]}
+{"label":"math","prompt":"Compute the derivative of x squared using calculus.","completion":" The derivative is two times x.","expected_pools":["expert_03_math"]}
+{"label":"physics","prompt":"Explain quantum mechanics and the energy levels of an atom.","expected_pools":["expert_04_physical_sciences"]}
+{"label":"biology","prompt":"Explain how DNA transcription produces RNA and proteins.","expected_pools":["expert_05_life_sciences"]}
+{"label":"engineering","prompt":"Design a PID controller for a robotics motor circuit.","expected_pools":["expert_06_engineering"]}
+{"label":"humanities","prompt":"Explain the historical causes of the French Revolution.","expected_pools":["expert_07_humanities_social"]}
+{"label":"mixed","prompt":"Write Python code to calculate a probability distribution for DNA mutations.","expected_pools":["expert_00_programming","expert_03_math","expert_05_life_sciences"]}
+{"label":"spanish","prompt":"Explica la derivada de una funcion y como calcularla en Python.","expected_pools":["expert_00_programming","expert_03_math"]}
+{"label":"return_programming","prompt":"Write a Java implementation of binary search.","expected_pools":["expert_00_programming"]}

@@ -1,0 +1,147 @@
+[
+  {
+    "id": "1.1",
+    "title": "Entrenamiento por categorías",
+    "status": "implementación disponible; hipótesis pendiente",
+    "files": [
+      "asi/data/prepare.py",
+      "asi/data/pools.py",
+      "asi/data/inspect.py",
+      "configs/expert_pools.json",
+      "configs/domain_experts.json",
+      "asi/models/domain.py",
+      "asi/experiments/train.py",
+      "asi/analysis/experts.py"
+    ],
+    "available": "Dataset clasificado, pools, entrenamiento restringido y auditoría del aislamiento de rutas y gradientes.",
+    "pending": "Entrenar suficientemente y demostrar especialización mediante evaluación externa y ablaciones; aislar rutas no demuestra conocimiento exclusivo."
+  },
+  {
+    "id": "1.2",
+    "title": "Calidad frente al modelo original",
+    "status": "parcial",
+    "files": [
+      "asi/experiments/audit.py",
+      "asi/models/domain.py",
+      "asi/models/original.py",
+      "examples/prompts.jsonl"
+    ],
+    "available": "Modos restringido, libre y ablación sobre un checkpoint por pools.",
+    "pending": "Entrenar un control de igual tamaño, tokens, inicialización y presupuesto; evaluar varios seeds y tareas externas. Cambiar el router de un checkpoint no equivale a entrenar un control."
+  },
+  {
+    "id": "1.3",
+    "title": "Espacio en GPU, RAM y SSD",
+    "status": "caché GPU/RAM/disco implementada en prototipo",
+    "files": [
+      "asi/runtime/cache.py",
+      "asi/experiments/audit.py",
+      "asi/quantization.py",
+      "asi/runtime/storage.py",
+      "asi/models/original.py",
+      "asi/experiments/decode_study.py",
+      "tests/test_incremental_storage.py"
+    ],
+    "available": "Residencia limitada por capa, inventario, exportación de shards, arranque meta con backbone y caché RAM limitada para expertos leídos de disco.",
+    "pending": "RSS total e I/O físico, evaluación a mayor escala; la compresión ejecutable y la caché RAM predictiva siguen pendientes."
+  },
+  {
+    "id": "1.4",
+    "title": "Predicción de expertos y caché hit/miss",
+    "status": "predictor estadístico implementado; evaluación diagnóstica",
+    "files": [
+      "asi/runtime/routing.py",
+      "asi/runtime/cache.py",
+      "asi/experiments/cache_study.py",
+      "examples/sessions.jsonl",
+      "tests/test_cache_study.py"
+    ],
+    "available": "Predictor aprendido por etiquetas actuales/anteriores, serialización, adaptación online posterior al turno y evaluación congelada frente a LRU, popularidad y semántica.",
+    "pending": "Ampliar conversaciones independientes y calibración; demostrar mejora conjunta de latencia y transferencias, evaluar adaptación online separadamente."
+  },
+  {
+    "id": "1.5",
+    "title": "Conversaciones y cambios de tema",
+    "status": "generación incremental y evaluación por token",
+    "files": [
+      "asi/runtime/generation.py",
+      "asi/runtime/routing.py",
+      "asi/runtime/cache.py",
+      "asi/analysis/experts.py",
+      "examples/prompts.jsonl",
+      "asi/experiments/cache_study.py",
+      "examples/sessions.jsonl",
+      "tests/test_cache_study.py",
+      "asi/experiments/decode_study.py",
+      "tests/test_incremental_storage.py"
+    ],
+    "available": "Comparación repetida de cinco políticas con dos expertos por capa, prefill serial y decode incremental; fracción de pasos sin cargas, bytes y verificación de salidas.",
+    "pending": "Corpus externo mayor, varias semillas y contextos largos; mejorar predicción si persiste swapping en cada token."
+  },
+  {
+    "id": "2.1",
+    "title": "Categorizar un modelo ya entrenado",
+    "status": "implementado y piloto local",
+    "files": [
+      "asi/models/original.py",
+      "asi/analysis/experts.py",
+      "asi/experiments/posthoc.py",
+      "asi/runtime/storage.py"
+    ],
+    "available": "Carga estricta y hashes; exportación E y puntuaciones por capa y dominio; etiquetas candidatas solapadas sobre el checkpoint de 8 expertos.",
+    "pending": "Revisión de etiquetas, estabilidad entre semillas y datos; implementación de carga escalable para checkpoints oficiales grandes. No se ha ejecutado el DeepSeek oficial de 671B."
+  },
+  {
+    "id": "2.2",
+    "title": "Comparar rutas nativas y categorizadas",
+    "status": "implementado y piloto local",
+    "files": [
+      "asi/experiments/posthoc.py",
+      "asi/runtime/cache.py",
+      "asi/runtime/generation.py",
+      "asi/experiments/cache_study.py",
+      "asi/experiments/decode_study.py"
+    ],
+    "available": "Baseline residente, prefetch conservando E y restricción de expertos; NLL, rutas, logits muestreados, tiempos y memoria. Estudio de sesiones con cinco políticas, calentamiento y tres repeticiones con orden aleatorio reproducible.",
+    "pending": "Benchmark ampliado por escenario, varias semillas, calidad externa y conversaciones reales largas; separar prefill/decode incremental."
+  },
+  {
+    "id": "2.3",
+    "title": "N activos sobre pools N, 2N y XN",
+    "status": "parcial",
+    "files": [
+      "asi/experiments/posthoc.py",
+      "asi/experiments/train.py",
+      "asi/models/domain.py",
+      "asi/quantization.py"
+    ],
+    "available": "Curvas de cobertura por K y parámetros configurables de expertos por pool y activos.",
+    "pending": "Entrenamientos comparables por tamaño, todas las instancias de la pool residentes, barrido de calidad/latencia y cuantización ejecutable. Cobertura sola no demuestra calidad."
+  },
+  {
+    "id": "3.1",
+    "title": "Escalar a la arquitectura futura indicada en el TFG",
+    "status": "pendiente y condicionado",
+    "files": [],
+    "available": "Protocolo de comparación reutilizable.",
+    "pending": "Verificar disponibilidad y arquitectura del destino denominado V4.1 flash en el documento; adaptar y validar solo tras demostrar beneficio en V3."
+  },
+  {
+    "id": "3.2",
+    "title": "Internet y herramientas de programación",
+    "status": "pendiente",
+    "files": [],
+    "available": "Sin integración de herramientas en el modelo.",
+    "pending": "Diseñar interfaz, permisos, evaluación y trazas de herramientas después de estabilizar la inferencia."
+  },
+  {
+    "id": "3.3",
+    "title": "Expertos comprimidos dentro de GPU",
+    "status": "pendiente; exportador previo disponible",
+    "files": [
+      "asi/quantization.py"
+    ],
+    "available": "Exportación offline de pesos INT8 y escalas.",
+    "pending": "Tier comprimido residente en GPU, kernels/descompresión y política de transición; medir buffers temporales, pérdida y coste frente a RAM."
+  }
+]

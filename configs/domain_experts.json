@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "description": "DeepSeek-V3 domain-specialized MoE experiment",
+  "n_pools": 8,
+  "experts_per_pool": 2,
+  "n_routed_experts": 16,
+  "n_activated_experts": 2,
+  "n_shared_experts": 2,
+  "pool_order": [
+    "expert_00_programming",
+    "expert_01_systems",
+    "expert_02_ai",
+    "expert_03_math",
+    "expert_04_physical_sciences",
+    "expert_05_life_sciences",
+    "expert_06_engineering",
+    "expert_07_humanities_social"
+  ],
+  "cache_policy": {
+    "hot": "bf16/fp32 GPU resident",
+    "cold": "CPU resident",
+    "max_hot_pools": 3,
+    "future_warm_tier": "quantized GPU resident"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "expert_00_programming": [
+    "computer_science_software_engineering__programming_python",
+    "computer_science_software_engineering__programming_java_jvm",
+    "computer_science_software_engineering__programming_c_cpp",
+    "computer_science_software_engineering__programming_javascript_typescript"
+  ],
+  "expert_01_systems": [
+    "computer_science_software_engineering__software_engineering",
+    "computer_science_software_engineering__algorithms_data_structures",
+    "computer_science_software_engineering__systems_linux_os",
+    "computer_science_software_engineering__networking_distributed",
+    "computer_science_software_engineering__databases_data_engineering",
+    "computer_science_software_engineering__devops_cloud",
+    "computer_science_software_engineering__cybersecurity"
+  ],
+  "expert_02_ai": [
+    "machine_learning_ai__machine_learning",
+    "machine_learning_ai__deep_learning",
+    "machine_learning_ai__large_language_models",
+    "machine_learning_ai__nlp",
+    "machine_learning_ai__data_science"
+  ],
+  "expert_03_math": [
+    "mathematics_statistics__algebra",
+    "mathematics_statistics__calculus",
+    "mathematics_statistics__geometry",
+    "mathematics_statistics__probability_statistics",
+    "mathematics_statistics__optimization"
+  ],
+  "expert_04_physical_sciences": [
+    "physical_sciences__physics",
+    "physical_sciences__chemistry",
+    "physical_sciences__astronomy_space"
+  ],
+  "expert_05_life_sciences": [
+    "life_sciences_biology__biology",
+    "life_sciences_biology__genetics",
+    "life_sciences_biology__molecular_biology",
+    "life_sciences_biology__neuroscience",
+    "life_sciences_biology__ecology",
+    "life_sciences_biology__evolution"
+  ],
+  "expert_06_engineering": [
+    "engineering_technology__electrical_electronics",
+    "engineering_technology__telecommunications",
+    "engineering_technology__mechanical",
+    "engineering_technology__civil",
+    "engineering_technology__robotics_control",
+    "engineering_technology__manufacturing",
+    "engineering_technology__energy"
+  ],
+  "expert_07_humanities_social": [
+    "social_sciences__psychology",
+    "social_sciences__sociology",
+    "history_geography__history",
+    "history_geography__geography",
+    "philosophy_ethics__philosophy",
+    "philosophy_ethics__ethics",
+    "arts_humanities__literature",
+    "arts_humanities__visual_arts"
+  ]
+}

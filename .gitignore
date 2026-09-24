@@ -21,7 +21,8 @@ hellaswag/
 edu_fineweb10B/
 plots/
 results/
-data/
+/data/
+fineweb_edu_specialized_pipeline/specialized_fineweb
 
 # Training outputs
 log/
@@ -42,3 +43,4 @@ Thumbs.db
 
 # Environment variables / secrets
 .env
+log_domain/

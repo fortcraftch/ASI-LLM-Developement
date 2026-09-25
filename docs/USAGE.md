@@ -191,6 +191,58 @@ backbone, buffers, tokenizer, clasificador, deserialización y caché de página
 del sistema también consumen memoria. Tampoco se pueden equiparar lecturas
 lógicas con I/O físico del SSD. No hay compresión ni ejecución distribuida.
 
+### Expertos fijos por clase sin E — opción 2, pasos 2.2 y 2.3
+
+```powershell
+python -m asi fixed-study --checkpoint results/expert_audit_training/model_04750.pt --calibration-dir results/posthoc_04750 --windows-per-pool 64 --seq-len 128 --max-new-tokens 16 --pin-memory --output results/fixed_no_E_new_run
+```
+
+Reutiliza únicamente la calibración train del checkpoint exacto; verifica hashes
+de pesos, arquitectura y manifiesto. Congela N=2 candidatos por clase/capa antes
+de consultar validación. Guarda `fixed_labels.json` (clases) y `global_labels.json`
+(popularidad sin clases). Las clases pueden compartir expertos; no afirma que
+sean especializaciones exclusivas ni reentrena pesos.
+
+Compara sobre **las mismas ventanas**:
+
+- `native`: E original, expertos completos residentes.
+- `oracle_uniform`: clase del corpus, dos expertos fijos y pesos iguales.
+- `predicted_uniform`: una clase top-1 del clasificador, dos expertos fijos y pesos iguales.
+- `global_uniform`: una pareja fija por capa, independiente del tema.
+- `oracle_calibrated`: los mismos expertos de `oracle_uniform`, con masa total
+  constante obtenida de train para controlar el cambio de escala del softmax.
+
+Ninguna variante fija evalúa E ni realiza top-k dentro del LLM. Se sustituye
+temporalmente el forward del gate y se restaura al terminar. E se utilizó en la
+calibración histórica para identificar candidatos; no se consulta durante la
+ejecución fija. La preparación carga la clase y los cambios de clase sí pueden
+transferir pesos. Una vez preparada, todos los N expertos permanecen residentes
+y no hay cargas de pesos durante prefill/decode de esa respuesta.
+
+`report.json` y `windows.json` incluyen NLL, perplexity, diferencia emparejada,
+coincidencia con el argmax original, acierto de próximo token, cobertura por
+dominio, precargas y memoria. El intervalo bootstrap remuestrea ventanas y es
+descriptivo: no garantiza independencia documental. No interpretar el ratio
+de perplexity como porcentaje de capacidad perdida. La etiqueta del corpus
+tampoco es una etiqueta humana infalible.
+
+`generation.jsonl` incluye respuestas libres del original, clase predicha y
+pareja global. Cada variante conserva su propia historia; cuando las respuestas
+divergen, sus turnos posteriores ya no son entradas emparejadas. La evaluación
+cuantitativa de degradación corresponde a las ventanas idénticas del corpus.
+
+Para conversar con N sobre N después del estudio:
+
+```powershell
+python -m asi chat existing --checkpoint results/expert_audit_training/model_04750.pt --expert-labels results/fixed_no_E_new_run/fixed_labels.json --policy fixed --session-context --output results/chat_fixed.json
+```
+
+`fixed` activa automáticamente top-1 de clase, límite N por capa y generación
+incremental. Usa pesos iguales por defecto; `--fixed-weight-mode calibrated`
+activa el control de masa train incluido en el artefacto. No acepta aprendizaje
+online de caché ni unión de varias clases. Pasar el antiguo mapeo de cuatro
+candidatos provoca un error explícito: hay que usar `fixed_labels.json`.
+
 ### Exportación INT8 offline
 
 ```powershell
@@ -222,3 +274,14 @@ se consolidan en PLAN, USAGE y FINDINGS. No hay duplicados de compatibilidad.
 Los resultados históricos conservan sus comandos originales como procedencia.
 La copia anterior del código y guías está en `results/refactor_backup/source.zip`,
 sin dataset ni checkpoints. No hay que descomprimirla para usar el proyecto.
+
+## Comparación extensa preparada (opción 1)
+
+Véase [COMPARISON.md](COMPARISON.md) para el protocolo, la cobertura congelada y
+los comandos futuros. La preparación actual está en
+`results/comparison_prepared_v1`; no se han ejecutado sus evaluaciones.
+
+```powershell
+python -m asi comparison check --suite results/comparison_prepared_v1
+python -m asi comparison --help
+```

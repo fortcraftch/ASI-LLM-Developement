@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 import math
 from collections import Counter
+from types import MethodType
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -253,3 +254,66 @@ class ExpertUsagePredictor:
                 raise ValueError('Invalid demand frequency')
             predictor.tables[name] = [count, usage]
         return predictor
+
+
+class FixedExpertRouting:
+    """Execute N fixed experts for one class, bypassing E entirely at inference.
+
+    Equal weights sum to route_scale in uniform mode. The optional calibrated
+    mode uses a fixed training-only mean total routing mass per layer/class.
+    Neither mode computes E(x), top-k, or token-dependent mixture weights.
+    """
+    def __init__(self, moes, mapping, weight_mode='uniform'):
+        if weight_mode not in ('uniform', 'calibrated'):
+            raise ValueError('Unknown fixed mixture weight mode')
+        self.moes, self.mapping, self.weight_mode = moes, mapping, weight_mode
+        self.label = None
+        self.originals = []
+        self.calls = Counter()
+        self.labels = None
+        for layer, moe in moes.items():
+            classes = mapping['layers'].get(str(layer), {})
+            if not classes or (self.labels is not None and set(classes) != self.labels):
+                raise ValueError('Fixed classes must exist consistently in every MoE layer')
+            self.labels = set(classes)
+            for label, ids in classes.items():
+                if len(ids) != moe.gate.topk or len(set(ids)) != len(ids):
+                    raise ValueError('Every class must contain exactly native N distinct experts')
+                if any(type(i) is not int or not 0 <= i < len(moe.experts) for i in ids):
+                    raise ValueError('Invalid fixed expert ID')
+                if weight_mode == 'calibrated':
+                    mass = mapping.get('fixed_mass', {}).get(str(layer), {}).get(label)
+                    if not isinstance(mass, (int,float)) or not math.isfinite(mass) or mass <= 0:
+                        raise ValueError('Calibrated routing needs a positive training-only mass for every class')
+
+    def select(self, labels):
+        labels = list(dict.fromkeys(labels))
+        if len(labels) != 1 or labels[0] not in self.labels:
+            raise ValueError('N-of-N routing requires exactly one known class; no multilabel union')
+        self.label = labels[0]
+
+    def forward(self, layer, gate, x):
+        if self.label is None:
+            raise ValueError('Select a fixed class before inference')
+        ids = self.mapping['layers'][str(layer)][self.label]
+        mass = gate.route_scale if self.weight_mode == 'uniform' else self.mapping['fixed_mass'][str(layer)][self.label]
+        indices = torch.tensor(ids, device=x.device, dtype=torch.long).expand(x.shape[0], -1)
+        weights = torch.full(indices.shape, mass/len(ids), device=x.device, dtype=x.dtype)
+        self.calls[layer] += 1
+        return weights, indices
+
+    def attach(self):
+        if self.originals:
+            raise ValueError('Fixed router already attached')
+        for layer, moe in self.moes.items():
+            gate = moe.gate
+            self.originals.append((gate, 'forward' in gate.__dict__, gate.__dict__.get('forward')))
+            gate.forward = MethodType(lambda gate, x, *args, lid=layer, **kwargs: self.forward(lid, gate, x), gate)
+
+    def close(self):
+        for gate, had_override, original in self.originals:
+            if had_override:
+                gate.forward = original
+            else:
+                del gate.forward
+        self.originals.clear()

@@ -5,6 +5,8 @@ import sys
 
 
 COMMANDS = {
+    'graphs': ('asi.analysis.plots', 'main', 'Explicar y graficar pruebas ya ejecutadas, sin cargar modelos'),
+    'comparison': ('asi.experiments.comparison', 'main', 'Preparar y ejecutar por separado la comparación de tres modelos'),
     'data': {
         'prepare': ('asi.data.prepare', 'main', 'Clasificar documentos y crear shards'),
         'pools': ('asi.data.pools', 'main', 'Construir el manifiesto de pools'),
@@ -14,6 +16,7 @@ COMMANDS = {
     'audit': ('asi.experiments.audit', 'main', 'Auditar rutas y memoria del modelo por pools'),
     'cache-study': ('asi.experiments.cache_study', 'main', 'Entrenar predictor y comparar cachés en sesiones separadas'),
     'decode-study': ('asi.experiments.decode_study', 'main', 'Medir swapping por token con residencia limitada por capa'),
+    'fixed-study': ('asi.experiments.fixed_study', 'main', 'Medir degradación con expertos fijos N sobre N sin E'),
     'export-store': ('asi.runtime.storage', 'main', 'Exportar backbone y expertos para carga SSD/RAM/GPU'),
     'posthoc': {
         'calibrate': ('asi.experiments.posthoc', 'main', 'Clasificar y comparar expertos ya entrenados'),

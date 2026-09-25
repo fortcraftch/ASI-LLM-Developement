@@ -20,8 +20,8 @@ hipótesis demostradas.
 | **1.4** Predicción de caché | `runtime/routing.py`, `runtime/cache.py`, `experiments/cache_study.py` | Predictor estadístico entrenable, actualización online opcional y comparación con LRU/popularidad/semántica | Más datos independientes, ajuste en desarrollo y demostrar beneficio neto |
 | **1.5** Conversaciones | `runtime/generation.py`, `experiments/cache_study.py`, `experiments/decode_study.py` | Sesiones diagnósticas, generación incremental real, repetición, swapping por token y límite de dos expertos/capa | Conversaciones reales largas, corpus mayor y varias semillas |
 | **2.1** Categorizar pesos existentes | `models/original.py`, `analysis/experts.py`, `experiments/posthoc.py` | Calibración por capa, E, etiquetas candidatas y hashes | Estabilidad y especificidad; carga escalable de modelos oficiales grandes |
-| **2.2** Comparar con router E | `experiments/posthoc.py`, `runtime/cache.py`, `runtime/generation.py` | Baseline residente, prefetch exacto y restricción; piloto real | Benchmark repetido, calidad externa y coste integral |
-| **2.3** N activos de N/2N/XN | `experiments/posthoc.py`, `experiments/train.py`, `models/domain.py`, `quantization.py` | Tamaños configurables y curvas de cobertura K | Entrenamientos comparables, toda la pool residente y cuantización ejecutable |
+| **2.2** Comparar con router E | `experiments/posthoc.py`, `experiments/fixed_study.py`, `runtime/cache.py` | Original, caché exacta y expertos fijos sin E; degradación por dominio y control de escala | Calidad externa, replicación con más checkpoints y corpus |
+| **2.3** N activos de N/2N/XN | `experiments/fixed_study.py`, `experiments/train.py`, `models/domain.py` | Caso N sobre N sin E, toda la clase residente; curvas de cobertura K previas | Comparación controlada N/2N/XN y cuantización ejecutable |
 | **3.1** Escalar arquitectura | Sin implementación específica | Protocolo reutilizable | Verificar destino y demostrar beneficio antes de escalar |
 | **3.2** Herramientas/internet | Sin implementación | — | Integración, permisos y evaluación |
 | **3.3** Compresión en GPU | `quantization.py` como preparación | Exportador offline INT8 | Tier comprimido en GPU, descompresión/kernels y evaluación |
@@ -40,6 +40,7 @@ hipótesis demostradas.
 | `asi/experiments/posthoc.py` | Calibración, evaluación separada y comparación de políticas. **2.1–2.3**. |
 | `asi/experiments/cache_study.py` | Aprende uso por contexto en train, congela en test y compara cinco políticas en GPU con igual presupuesto entre cachés. **1.4, 1.5, 2.2**. |
 | `asi/experiments/decode_study.py` | Compara las cinco políticas generando respuestas, separa prefill/decode y registra cada token bajo límite por capa. **1.3, 1.5, 2.2**. |
+| `asi/experiments/fixed_study.py`, `tests/test_fixed_routing.py` | N sobre N sin ejecutar E, clase conocida/predicha/global, escala uniforme o calibrada, NLL y generación. Tests de bypass real, restauración del router y ausencia de cargas durante ejecución. **2.2, 2.3**. |
 | `asi/analysis/experts.py` | `RoutingTrace` y `ExpertCalibrator`: identidad capa/experto, selecciones, pesos, E·h y asociaciones entre capas. **1.1, 1.5, 2.1, 2.2**. |
 | `asi/runtime/routing.py` | Clasificación multietiqueta, continuidad heurística y `ExpertUsagePredictor`, que aprende tasas por etiqueta actual/anterior. **1.4, 1.5**. |
 | `asi/runtime/cache.py` | Caché por pools y caché original; backing RAM, residencia GPU, precarga, desalojos e inventario. **1.3–1.5, 2.2**. |
@@ -86,6 +87,15 @@ La latencia es un coste que se debe documentar, no una promesa de superar al mod
 residente. Dos expertos significa dos **enrutados** por capa; los compartidos,
 backbone y KV se contabilizan aparte.
 
+En el experimento **N sobre N**, una sola clase determina N expertos por capa y
+todos se ejecutan. La clase no cambia dentro de la respuesta. No se hace unión
+multietiqueta, porque aumentaría N; distintas clases pueden compartir expertos.
+El modo uniforme asigna `route_scale/N` a cada experto sin calcular E. Un control
+calibrado asigna a cada uno `masa_media_train/N`, también constante, para estudiar
+el efecto de escala: el softmax original puede dar a sus N seleccionados una suma
+menor que `route_scale`. Ambos cambian la función del modelo y exigen evaluación
+de calidad; no son variantes de caché exacta.
+
 ## Orden y criterios del estudio
 
 1. **Controles y corpus (1.1, 2.1).** Versionar manifiestos, tokenizer, tokens,
@@ -131,3 +141,9 @@ Separar etiquetas conocidas del corpus de predicciones del clasificador.
 Cada conclusión debe presentar pregunta, control, intervención, tamaño de muestra,
 resultado, limitaciones y decisión siguiente. Los tests verifican mecanismos;
 las hipótesis requieren experimentos. Véase [FINDINGS.md](FINDINGS.md).
+
+La opción 1 tiene una [batería preparada de tres modelos](COMPARISON.md), vinculada
+a 1.2, 1.3, 1.5, 2.2 y 2.3. El bundle actual congela entradas y trabajos; sus
+evaluaciones quedan pendientes hasta disponer de los tres modelos entrenados.
+La guía detalla la correspondencia de cada módulo y evita interpretar esta
+preparación como un resultado experimental.

@@ -13,6 +13,10 @@ Empieza por el [mapa del TFG y protocolo](docs/PLAN.md), consulta los
 [comandos y migración](docs/USAGE.md) y los [resultados interpretados](docs/FINDINGS.md).
 Se conserva el [documento original](docs/TFG_original.txt).
 
+La [comparación extensa de tres modelos](docs/COMPARISON.md) está preparada y
+pendiente de ejecución cuando termine su entrenamiento. `python -m asi comparison`
+separa preparación, registro de checkpoints, ejecución por trabajo y resumen.
+
 ```text
 asi/                    Código importable; entrada: python -m asi
   data/                 Clasificación, shards y manifiestos
@@ -53,3 +57,7 @@ para carga desde disco con una caché RAM limitada, sin cargar todos sus pesos a
 iniciar la inferencia. Backbone, expertos compartidos y KV siguen ocupando GPU.
 La compresión ejecutable dentro de GPU sigue pendiente.
 La existencia del predictor no demuestra una mejora: consulta sus resultados.
+
+`python -m asi fixed-study` evalúa otra intervención: la clase selecciona dos
+expertos fijos por capa, se ejecutan ambos y **E no se calcula en inferencia**.
+Este modo modifica el modelo; mide explícitamente degradación frente al original.

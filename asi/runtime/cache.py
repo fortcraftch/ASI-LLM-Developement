@@ -204,8 +204,8 @@ class NativeExpertSessionCache:
     """
     def __init__(self,model,mapping,device='cuda',max_hot_experts=256,
                  pin_memory=False,max_pinned_bytes=512*1024**2,policy='prefetch',
-                 max_experts_per_layer=None, backing_store=None):
-        if policy not in ('prefetch','restrict'): raise ValueError('Unknown routing policy')
+                 max_experts_per_layer=None, backing_store=None, fixed_weight_mode='uniform'):
+        if policy not in ('prefetch','restrict','fixed'): raise ValueError('Unknown routing policy')
         if max_hot_experts<1: raise ValueError('Positive expert capacity required')
         self.moes=native_moes(model)
         self.mapping=mapping['layers']
@@ -241,6 +241,12 @@ class NativeExpertSessionCache:
                 if any(not isinstance(i,int) or not 0<=i<len(moe.experts) for i in ids):
                     raise ValueError(f'Invalid reviewed expert mapping at layer {layer}')
         if model.training: raise ValueError('Native expert cache requires eval mode')
+        self.fixed_router = None
+        if policy == 'fixed':
+            from asi.runtime.routing import FixedExpertRouting
+            self.fixed_router = FixedExpertRouting(self.moes, mapping, fixed_weight_mode)
+            if self.capacity < sum(moe.gate.topk for moe in self.moes.values()):
+                raise ValueError('Fixed N-of-N requires enough capacity to retain N experts in every layer')
         if backing_store is not None:
             if self.device.type != 'cuda':
                 raise ValueError('Disk-backed execution currently requires CUDA to bound cold RAM aliases')
@@ -270,6 +276,8 @@ class NativeExpertSessionCache:
         self.stats['pinned_bytes']=pinned
         for layer,moe in self.moes.items():
             self.handles.append(moe.gate.register_forward_hook(lambda gate,args,out,lid=layer:self._route(lid,gate,args,out)))
+        if self.fixed_router:
+            self.fixed_router.attach()
 
     def _place(self,key,device):
         if self.backing_store is not None:
@@ -320,6 +328,8 @@ class NativeExpertSessionCache:
     def set_context_labels(self,labels):
         labels=list(dict.fromkeys(labels))
         if not labels: raise ValueError('Context labels cannot be empty')
+        if self.fixed_router:
+            self.fixed_router.select(labels)
         # Validate all layers before changing context in restrictive mode.
         for layer,moe in self.moes.items():
             ids=self._label_ids(layer,labels)
@@ -388,6 +398,7 @@ class NativeExpertSessionCache:
                 'policy':self.policy,'device':str(self.device),'resident_experts':[list(k) for k in self.hot],
                 'max_experts_per_layer': self.layer_capacity, 'peak_resident_by_layer': dict(self.peak_by_layer),
                 'disk_store': self.backing_store.snapshot() if self.backing_store else None,
+                'fixed_gate_calls': dict(self.fixed_router.calls) if self.fixed_router else None,
                 'counter_unit':'unique layer-expert demanded per forward',
                 'ram_backing_bytes': self.backing_store.bytes if self.backing_store else sum(t.numel()*t.element_size() for values in self.backing.values() for t in values.values())}
 
@@ -423,5 +434,7 @@ class NativeExpertSessionCache:
         if self.device.type=='cuda': torch.cuda.synchronize(self.device)
         for h in self.handles: h.remove()
         self.handles=[]
+        if self.fixed_router:
+            self.fixed_router.close()
         for key in list(self.hot): self._place(key,torch.device('cpu'))
         self.hot.clear()

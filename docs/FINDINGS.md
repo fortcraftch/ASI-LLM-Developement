@@ -217,3 +217,89 @@ El siguiente estudio debe contrastar el coste de conservar expertos adicionales
 comprimidos frente a fijar una pareja por contexto. Fijar la pareja cambia el
 router y exige medir degradación de calidad; no debe presentarse como caché exacta.
 La predicción para la RAM también necesita evaluación con un corpus mayor.
+
+## Opción 2: N sobre N sin E — 25 de septiembre de 2026
+
+Se implementó y ejecutó la opción de expertos fijos. Una única clase selecciona
+**dos expertos por capa** y ambos se ejecutan para todos los tokens de esa
+respuesta. El forward original de E se sustituye temporalmente: no calcula
+afinidades, softmax ni top-k en las variantes fijas. Los pesos del LLM no se
+reentrenan. Al cerrar el modo se restaura el router original.
+
+Las ocho clases tienen el mismo N=2; pueden compartir expertos. Los candidatos
+proceden de la calibración train previa y quedan congelados antes de evaluar.
+El modo principal combina sus salidas con pesos iguales `route_scale/2`.
+El control calibrado también usa pesos constantes e iguales, pero con la masa
+total media observada en train: evita atribuir toda la pérdida al cambio de
+expertos cuando el softmax original no normalizaba sus dos pesos seleccionados
+para que sumasen uno.
+
+Se evaluaron **377 ventanas de 128 tokens: 48.256 tokens por variante**. Hay
+20 ventanas de programación, 37 de matemáticas y 64 en cada uno de sistemas,
+ciencias físicas, ciencias de la vida, ingeniería y humanidades. **AI sigue sin
+ventanas de validación**. La media global pondera tokens; la cobertura no está
+equilibrada por dominio. El informe incluye resultados por dominio.
+
+Evidencia: [resumen sin E](../results/fixed_two_no_E_04750_v1/SUMMARY.md),
+[informe y contrastes](../results/fixed_two_no_E_04750_v1/report.json),
+[ventanas emparejadas](../results/fixed_two_no_E_04750_v1/windows.json),
+[generaciones completas](../results/fixed_two_no_E_04750_v1/generation.jsonl) y
+[mapeo fijo](../results/fixed_two_no_E_04750_v1/fixed_labels.json).
+
+| Variante | NLL ↓ | Delta NLL | Perplexity / original ↓ | Acierto próximo token ↑ |
+|---|---:|---:|---:|---:|
+| Original con E | 3,82352 | — | 1,000 | 32,66% |
+| Clase conocida, pesos iguales | 4,56819 | +0,74467 | 2,106 | 25,17% |
+| Clase predicha, pesos iguales | 4,56907 | +0,74555 | 2,108 | 25,22% |
+| Pareja global, pesos iguales | 4,58810 | +0,76458 | 2,148 | 25,04% |
+| Clase conocida, escala fija calibrada | 4,55063 | +0,72711 | 2,069 | 25,22% |
+
+La NLL y la perplexity miden predicción de tokens sobre estas entradas. Un ratio
+2,108 **no significa perder el 110,8% de capacidad general**. El acierto tampoco
+es un benchmark de corrección de tareas: es la coincidencia del siguiente token
+de mayor probabilidad con el token real del corpus.
+
+El clasificador coincidió con la etiqueta del corpus en un **73,47%** de las
+ventanas. Usar la etiqueta conocida apenas cambió la NLL respecto a la predicha:
+diferencia predicha–conocida +0,00088, con intervalo descriptivo de remuestreo de
+ventanas [-0,00232; +0,00372]. Por tanto, en esta muestra el error al elegir la
+clase no explica la mayor parte de la degradación observada al retirar E.
+
+La clase conocida mejora en 0,01991 de NLL respecto a la pareja global. La escala
+train mejora 0,01756 respecto a pesos uniformes. Ambas diferencias son pequeñas
+frente al aumento de aproximadamente 0,73–0,76 respecto al original. En las
+capas 1, 2, 9 y 10 todas las clases tienen exactamente la misma pareja; las demás
+tienen solo dos o tres parejas distintas entre ocho clases. Es evidencia de una
+separación temática limitada en este mapeo, no de ocho especialistas exclusivos.
+
+## Memoria y swapping con expertos fijos
+
+Las cuatro variantes fijas mantuvieron **22 expertos enrutados en GPU, 28,875 MiB**:
+dos en cada una de las 11 capas MoE. Los expertos compartidos, backbone y KV no
+están incluidos en esa cifra. No hubo misses ni bytes H2D durante los forwards
+de validación después de preparar la clase.
+
+También se generaron 27 respuestas de 16 tokens: nueve con el original, nueve
+con clase predicha y nueve con pareja global. En las dos variantes fijas hubo
+**270 forwards de decode y 674 de prefill, todos sin cargas de expertos** tras
+preparar la clase. Los cambios de clase sí requieren precargas y se registran
+por separado. Cada variante conservó su propia historia generada; los turnos
+posteriores pueden diferir en entradas, por lo que la medida emparejada de
+degradación corresponde a las ventanas del corpus, no a esos ejemplos libres.
+
+Se comprobó además el chat fijo desde el almacén de disco con **4 MiB de caché
+RAM de expertos**: cargó inicialmente los 22 expertos seleccionados y no tuvo
+misses durante la respuesta. [Traza del chat](../results/fixed_two_no_E_04750_v1/chat_fixed_disk.json).
+
+El resultado distingue las dos estrategias: conservar E con dos plazas por capa
+preservaba las salidas pero transfería en cada paso; fijar N sobre N elimina
+esas transferencias dentro de la respuesta, **a costa de una degradación clara
+en las métricas medidas**. No se ha demostrado aún que la pérdida sea aceptable
+para tareas concretas ni que se mantenga este resultado en modelos oficiales grandes.
+
+Pasaron **35 tests**. Los nuevos comprueban que E no se ejecuta, pesos constantes,
+N idéntico por clase, ausencia de unión multietiqueta, restauración del router,
+equivalencia de ejecución fija residente/caché y contrastes de ventanas emparejadas.
+Los intervalos bootstrap son descriptivos: las ventanas pueden compartir documentos
+o fuente, y no se ha verificado exposición histórica del entrenamiento. No hay
+benchmark externo ni comparación válida todavía con el modelo por pools de diez pasos.

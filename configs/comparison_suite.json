@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "seed": 2026,
+  "data_root": "fineweb_edu_specialized_pipeline/specialized_fineweb",
+  "pool_manifest": "fineweb_edu_specialized_pipeline/specialized_fineweb/expert_pools.json",
+  "models": {
+    "original": {"adapter": "native", "checkpoint": null, "architecture": "../Creating-DeepSeek-V3-From-0/train_deepseek_v3.py", "mapping": null, "training": null},
+    "classified": {"adapter": "native", "checkpoint": null, "architecture": "../Creating-DeepSeek-V3-From-0/train_deepseek_v3.py", "mapping": null, "training": null},
+    "domain": {"adapter": "domain", "checkpoint": null, "architecture": null, "mapping": null, "training": null}
+  },
+  "quality": {"split": "val", "lengths": [128, 512], "windows_per_class": 256},
+  "generation": {"max_prompt_tokens": 128, "new_tokens": [32, 128]},
+  "capacities_per_layer": [2, 4, 8],
+  "repeats": 3,
+  "cache_starts": ["cold", "warm"],
+  "classifier": "mdonigian/fineweb-edu-topic-classifier",
+  "device": "cuda",
+  "pin_memory": true,
+  "max_pinned_mib": 512
+}

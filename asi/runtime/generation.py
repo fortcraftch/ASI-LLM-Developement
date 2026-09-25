@@ -179,7 +179,8 @@ def existing_main():
     p.add_argument('--architecture',type=Path,default=DEFAULT_ARCHITECTURE)
     p.add_argument('--expert-labels',type=Path,required=True)
     p.add_argument('--device',default='cuda' if torch.cuda.is_available() else 'cpu')
-    p.add_argument('--policy',choices=['prefetch','restrict'],default='prefetch')
+    p.add_argument('--policy',choices=['prefetch','restrict','fixed'],default='prefetch')
+    p.add_argument('--fixed-weight-mode',choices=['uniform','calibrated'],default='uniform')
     p.add_argument('--cache-strategy', choices=['semantic', 'lru', 'popularity', 'learned'], default='semantic')
     p.add_argument('--usage-predictor', type=Path)
     p.add_argument('--prefetch-experts', type=int, help='Candidate budget for learned/popularity; default min(32, capacity)')
@@ -199,12 +200,16 @@ def existing_main():
     p.add_argument('--output',type=Path,default=Path('results/posthoc_chat.json'))
     a=p.parse_args()
     if a.max_new_tokens<1: p.error('max-new-tokens must be positive')
+    if a.policy == 'fixed':
+        a.max_labels = 1  # N-of-N cannot union several classes and still retain N.
     if a.prefetch_experts is None:
         a.prefetch_experts = min(32, a.max_hot_experts)
     if not 0 <= a.prefetch_experts <= a.max_hot_experts:
         p.error('prefetch-experts must be between zero and max-hot-experts')
-    if a.policy == 'restrict' and (a.cache_strategy != 'semantic' or a.learn_online):
+    if a.policy in ('restrict', 'fixed') and (a.cache_strategy != 'semantic' or a.learn_online):
         p.error('Learned caching requires unchanged native routing: --policy prefetch')
+    if a.fixed_weight_mode != 'uniform' and a.policy != 'fixed':
+        p.error('Calibrated fixed weights require --policy fixed')
     if a.cache_strategy in ('learned', 'popularity') and not a.usage_predictor:
         p.error('This cache strategy requires --usage-predictor')
     if a.learn_online and (not a.usage_predictor or not a.predictor_output):
@@ -219,6 +224,11 @@ def existing_main():
         model,metadata = load_streamed_model(a.expert_store,a.architecture)
     else:
         model,metadata=load_original_model(a.checkpoint,a.architecture)
+    if a.policy == 'fixed':
+        sizes = {moe.gate.topk for moe in native_moes(model).values()}
+        if len(sizes) != 1:
+            p.error('Fixed N-of-N requires the same N in every layer')
+        a.experts_per_layer = sizes.pop()
     if a.experts_per_layer is not None:
         a.incremental = True
         a.max_hot_experts = min(a.max_hot_experts, len(native_moes(model))*a.experts_per_layer)
@@ -243,7 +253,8 @@ def existing_main():
     move_backbone(model,a.device)
     cache=NativeExpertSessionCache(model,mapping,device=a.device,max_hot_experts=a.max_hot_experts,
                                    pin_memory=a.pin_memory,policy=a.policy,
-                                   max_experts_per_layer=a.experts_per_layer,backing_store=backing_store)
+                                   max_experts_per_layer=a.experts_per_layer,backing_store=backing_store,
+                                   fixed_weight_mode=a.fixed_weight_mode)
     enc=tiktoken.get_encoding('gpt2'); history=''; turns=[]; previous_labels=[]
     rows=[{'prompt':a.prompt}] if a.prompt else (
         [json.loads(line) for line in a.prompts.read_text(encoding='utf-8-sig').splitlines() if line.strip()] if a.prompts else None)
@@ -297,6 +308,7 @@ def existing_main():
             a.output.write_text(json.dumps({'metadata':metadata,'policy':a.policy,'max_hot_experts':a.max_hot_experts,
                 'cache_strategy':a.cache_strategy, 'learn_online':a.learn_online,
                 'incremental':a.incremental, 'experts_per_layer':a.experts_per_layer,
+                'fixed_weight_mode':a.fixed_weight_mode if a.policy=='fixed' else None,
                 'usage_predictor':str(a.usage_predictor) if a.usage_predictor else None,
                 'classifier_enabled':not a.no_classifier,'classifier_memory':module_memory(router.classifier),
                 'note':'Serial prefill and incremental KV decode.' if a.incremental else 'Original full-context forward per generated token.',

@@ -19,14 +19,20 @@
   {
     "id": "1.2",
     "title": "Calidad frente al modelo original",
-    "status": "parcial",
+    "status": "batería de tres modelos preparada; ejecución pendiente",
     "files": [
+      "configs/comparison_suite.json",
+      "asi/experiments/comparison.py",
+      "asi/experiments/comparison_run.py",
+      "asi/experiments/comparison_report.py",
+      "tests/test_comparison_suite.py",
+      "docs/COMPARISON.md",
       "asi/experiments/audit.py",
       "asi/models/domain.py",
       "asi/models/original.py",
       "examples/prompts.jsonl"
     ],
-    "available": "Modos restringido, libre y ablación sobre un checkpoint por pools.",
+    "available": "Auditoría por pools y batería congelada de tres modelos: continuaciones reservadas, controles residentes y exactos, restricciones con/sin E, contrastes pareados. Preparada sin evaluar checkpoints entrenados.",
     "pending": "Entrenar un control de igual tamaño, tokens, inicialización y presupuesto; evaluar varios seeds y tareas externas. Cambiar el router de un checkpoint no equivale a entrenar un control."
   },
   {
@@ -94,15 +100,18 @@
   {
     "id": "2.2",
     "title": "Comparar rutas nativas y categorizadas",
-    "status": "implementado y piloto local",
+    "status": "implementado; pilotos con E y sin E",
     "files": [
       "asi/experiments/posthoc.py",
       "asi/runtime/cache.py",
       "asi/runtime/generation.py",
       "asi/experiments/cache_study.py",
-      "asi/experiments/decode_study.py"
+      "asi/experiments/decode_study.py",
+      "asi/experiments/fixed_study.py",
+      "asi/runtime/routing.py",
+      "tests/test_fixed_routing.py"
     ],
-    "available": "Baseline residente, prefetch conservando E y restricción de expertos; NLL, rutas, logits muestreados, tiempos y memoria. Estudio de sesiones con cinco políticas, calentamiento y tres repeticiones con orden aleatorio reproducible.",
+    "available": "Baseline residente, prefetch conservando E y restricción de expertos; NLL, rutas, logits muestreados, tiempos y memoria. Estudio de sesiones con cinco políticas, calentamiento y tres repeticiones con orden aleatorio reproducible. Variante N sobre N con bypass real de E, clase conocida/predicha/global y control de escala train; evaluación emparejada de degradación. Opción 2 ejecutada en 377 ventanas (48.256 tokens), cinco variantes y generación: sin swapping interno pero degradación de NLL.",
     "pending": "Benchmark ampliado por escenario, varias semillas, calidad externa y conversaciones reales largas; separar prefill/decode incremental."
   },
   {
@@ -113,9 +122,12 @@
       "asi/experiments/posthoc.py",
       "asi/experiments/train.py",
       "asi/models/domain.py",
-      "asi/quantization.py"
+      "asi/quantization.py",
+      "asi/experiments/fixed_study.py",
+      "asi/runtime/routing.py",
+      "tests/test_fixed_routing.py"
     ],
-    "available": "Curvas de cobertura por K y parámetros configurables de expertos por pool y activos.",
+    "available": "Curvas de cobertura por K y parámetros configurables de expertos por pool y activos. Caso N sobre N ejecutable con todos los expertos de la clase residentes y sin E. N=2 sobre 2 probado en todas las clases; 22 expertos enrutados residentes. Falta el barrido N/2N/XN controlado.",
     "pending": "Entrenamientos comparables por tamaño, todas las instancias de la pool residentes, barrido de calidad/latencia y cuantización ejecutable. Cobertura sola no demuestra calidad."
   },
   {

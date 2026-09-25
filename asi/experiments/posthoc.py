@@ -184,7 +184,13 @@ def main():
     calibration.write(args.output/'calibration.json')
     calibration.export_router_vectors(args.output/'router_vectors')
     mapping=build_mapping(calibration,args.experts_per_label)
-    mapping['provenance']=metadata
+    mapping['provenance']={**metadata, 'calibration_split': 'train'}
+    # Freeze a domain-independent control using train evidence only.
+    global_rates=defaultdict(lambda:defaultdict(float))
+    for row in calibration.report()['evidence']:
+        global_rates[str(row['layer'])][row['expert']]+=row['selection_rate']
+    mapping['global_layers']={layer:{'global':sorted(scores,key=lambda e:(-scores[e],e))}
+                              for layer,scores in global_rates.items()}
     (args.output/'expert_labels.json').write_text(json.dumps(mapping,indent=2),encoding='utf-8')
     evidence=calibration.report()['evidence']
     by_expert=defaultdict(list)

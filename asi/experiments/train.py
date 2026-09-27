@@ -456,6 +456,7 @@ def main():
 
     args.log_dir.mkdir(parents=True, exist_ok=True)
     (args.log_dir / 'run_metadata.json').write_text(json.dumps({
+        'moe_backend': os.environ.get('ASI_MOE_BACKEND', 'auto'),
         'recipe': recipe, 'settings': model.training_settings, 'arguments': vars(args),
         'model': asdict(config), 'parameters': sum(p.numel() for p in model.parameters()),
         'validation_aggregation': 'equal mean over pools',

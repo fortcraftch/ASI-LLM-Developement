@@ -758,6 +758,9 @@ class MoE(nn.Module):
         self.register_buffer("expert_pool_ids", expert_pool_ids, persistent=False)
 
         self._grouped_mm_available = hasattr(F, "grouped_mm")
+        self.moe_backend = os.environ.get('ASI_MOE_BACKEND', 'auto').lower()
+        if self.moe_backend not in ('auto', 'bmm', 'grouped'):
+            raise ValueError('ASI_MOE_BACKEND must be auto, bmm or grouped')
         self._backend_reported = False
 
     def allowed_mask_for_pools(self, pool_ids: Sequence[int]) -> torch.Tensor:
@@ -897,15 +900,16 @@ class MoE(nn.Module):
         remap = torch.full((self.n_routed_experts,), -1, device=x.device, dtype=torch.long)
         remap[active_ids] = torch.arange(active_ids.numel(), device=x.device)
         indices = remap[indices]
-        use_grouped = x.is_cuda and self._grouped_mm_available
+        if self.moe_backend == 'grouped' and not (x.is_cuda and self._grouped_mm_available):
+            raise RuntimeError('Forced grouped MoE requires CUDA and torch.nn.functional.grouped_mm')
+        use_grouped = self.moe_backend != 'bmm' and x.is_cuda and self._grouped_mm_available
         if not self._backend_reported:
             print(f"MoE backend: {'grouped_mm' if use_grouped else 'batched_bmm'} | pool-restricted routing enabled")
             self._backend_reported = True
         if use_grouped:
-            try:
-                y = self._forward_grouped(x, weights, indices, w1, w2, w3)
-            except (RuntimeError, NotImplementedError):
-                y = self._forward_bmm(x, weights, indices, w1, w2, w3)
+            # CUDA errors can be asynchronous and leave the context unusable.
+            # Do not swallow them and launch another backend in the same process.
+            y = self._forward_grouped(x, weights, indices, w1, w2, w3)
         else:
             y = self._forward_bmm(x, weights, indices, w1, w2, w3)
         z = self.shared_experts(x)

@@ -174,3 +174,8 @@ las pruebas pendientes.
 La prioridad siguiente sigue siendo obtener los tres modelos terminados,
 comprobar que su entrenamiento permita una comparación justa y ejecutar los
 controles de la batería preparada antes de interpretar sus intervenciones.
+
+Como trabajo relacionado, se ha revisado [AirLLM](AIRLLM.md): comparte el objetivo
+de reducir VRAM, pero su carga bajo demanda no equivale a mantener una pareja
+temática durante toda la respuesta. La comparación está basada en documentación
+y código, sin un benchmark local de AirLLM.

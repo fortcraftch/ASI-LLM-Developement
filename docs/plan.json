@@ -131,6 +131,19 @@
     "pending": "Entrenamientos comparables por tamaño, todas las instancias de la pool residentes, barrido de calidad/latencia y cuantización ejecutable. Cobertura sola no demuestra calidad."
   },
   {
+    "id": "2.4",
+    "title": "Programa dinámico según taxonomía y hardware",
+    "status": "parcial",
+    "files": [
+      "asi/models/design.py",
+      "asi/runtime/routing.py",
+      "configs/taxonomy_8.json",
+      "docs/TRAINING_124M.md"
+    ],
+    "available": "Recetas con presupuesto total comprobado, taxonomía exhaustiva y clasificador adaptado al manifiesto.",
+    "pending": "Selección automática por memoria y calidad, división multilabel y nivel comprimido residente en GPU."
+  },
+  {
     "id": "3.1",
     "title": "Escalar a la arquitectura futura indicada en el TFG",
     "status": "pendiente y condicionado",
@@ -155,5 +168,17 @@
     ],
     "available": "Exportación offline de pesos INT8 y escalas.",
     "pending": "Tier comprimido residente en GPU, kernels/descompresión y política de transición; medir buffers temporales, pérdida y coste frente a RAM."
+  },
+  {
+    "id": "3.4",
+    "title": "Router de modelos independientes por categoría",
+    "status": "implementado; pendiente de entrenar y medir",
+    "files": [
+      "asi/runtime/ensemble.py",
+      "asi/experiments/train.py",
+      "configs/experiment_124m_v1/router_bank.json"
+    ],
+    "available": "Entrenamiento de ocho modelos densos, presupuesto conjunto inferior a 124M y selección de un backbone por entrada.",
+    "pending": "Entrenar todos los especialistas y comparar calidad, latencia y memoria con los MoE."
   }
 ]

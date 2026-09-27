@@ -109,12 +109,23 @@ class DomainSessionRouter:
         threshold: float = 0.20,
         session_inertia: float = 0.15,
         load_classifier: bool = True,
+        pool_manifest: Optional[dict] = None,
     ):
         if not pool_names or len(set(pool_names)) != len(pool_names):
             raise ValueError("pool_names must be nonempty and unique")
         if not 1 <= max_pools <= len(pool_names):
             raise ValueError("max_pools must be between 1 and the number of pools")
         self.pool_names = pool_names
+        self.broad_to_pools = BROAD_TO_POOLS
+        self.dynamic_taxonomy = pool_manifest is not None
+        if pool_manifest is not None:
+            if list(pool_manifest['pools']) != pool_names:
+                raise ValueError('Classifier pool order differs from the model manifest')
+            self.broad_to_pools = {}
+            for pool, info in pool_manifest['pools'].items():
+                domains=info.get('broad_domains') or sorted({c.split('__')[0] for c in info['categories']})
+                for domain in domains:
+                    self.broad_to_pools.setdefault(domain,[]).append(pool)
         self.max_pools = max_pools
         self.threshold = threshold
         self.session_inertia = session_inertia
@@ -152,9 +163,12 @@ class DomainSessionRouter:
         scores = {pool: 0.0 for pool in self.pool_names}
 
         for label, value in broad.items():
-            for pool in BROAD_TO_POOLS.get(label, []):
+            for pool in self.broad_to_pools.get(label, []):
                 if pool in scores:
-                    scores[pool] += 0.70 * value
+                    if self.dynamic_taxonomy:
+                        scores[pool] = max(scores[pool], 0.70*value)
+                    else:
+                        scores[pool] += 0.70 * value
 
         for pool in self.pool_names:
             hints = POOL_HINTS.get(pool, [])

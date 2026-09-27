@@ -5,6 +5,7 @@ import sys
 
 
 COMMANDS = {
+    'design': ('asi.models.design', 'main', 'Diseñar pools y arquitecturas bajo un presupuesto exacto de parámetros'),
     'graphs': ('asi.analysis.plots', 'main', 'Explicar y graficar pruebas ya ejecutadas, sin cargar modelos'),
     'comparison': ('asi.experiments.comparison', 'main', 'Preparar y ejecutar por separado la comparación de tres modelos'),
     'data': {
@@ -22,6 +23,7 @@ COMMANDS = {
         'calibrate': ('asi.experiments.posthoc', 'main', 'Clasificar y comparar expertos ya entrenados'),
     },
     'chat': {
+        'router': ('asi.runtime.ensemble', 'main', 'Elegir un modelo denso independiente por tema'),
         'domain': ('asi.runtime.generation', 'domain_main', 'Conversar con el modelo entrenado por pools'),
         'existing': ('asi.runtime.generation', 'existing_main', 'Conversar con el modelo original categorizado'),
     },

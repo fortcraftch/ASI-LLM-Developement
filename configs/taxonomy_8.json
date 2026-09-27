@@ -1,0 +1,10 @@
+{
+  "technology": ["computer_science_software_engineering", "machine_learning_ai", "engineering_technology"],
+  "math_physics": ["mathematics_statistics", "physical_sciences"],
+  "biology": ["life_sciences_biology"],
+  "health": ["medicine_health"],
+  "environment": ["environmental_science_energy"],
+  "society_economy": ["social_sciences", "law_government", "business_economics", "personal_finance_practical_life"],
+  "history_arts": ["history_geography", "arts_humanities", "philosophy_ethics"],
+  "education_language": ["education_pedagogy", "language_writing"]
+}

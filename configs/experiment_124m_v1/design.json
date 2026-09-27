@@ -1,0 +1,118 @@
+{
+  "source_manifest_sha256": "62a29cfb8093b0d82b628ece1b1e6f0ff9b1e758627b51546e66d8f648d3ccdd",
+  "state": "designed_not_trained",
+  "architectures": [
+    {
+      "name": "base_8_learned",
+      "experts_per_layer": 8,
+      "experts_per_pool": 1,
+      "active_per_layer": 1,
+      "expert_hidden_width": 224,
+      "total": 123632128,
+      "routed": 30277632,
+      "common_including_shared": 93354496
+    },
+    {
+      "name": "domain_8_learned",
+      "experts_per_layer": 8,
+      "experts_per_pool": 1,
+      "active_per_layer": 1,
+      "expert_hidden_width": 224,
+      "total": 123632128,
+      "routed": 30277632,
+      "common_including_shared": 93354496
+    },
+    {
+      "name": "domain_8_uniform_pool",
+      "experts_per_layer": 8,
+      "experts_per_pool": 1,
+      "active_per_layer": 1,
+      "expert_hidden_width": 224,
+      "total": 123632128,
+      "routed": 30277632,
+      "common_including_shared": 93354496
+    },
+    {
+      "name": "base_16_learned",
+      "experts_per_layer": 16,
+      "experts_per_pool": 2,
+      "active_per_layer": 2,
+      "expert_hidden_width": 120,
+      "total": 122325504,
+      "routed": 32440320,
+      "common_including_shared": 89885184
+    },
+    {
+      "name": "domain_16_learned",
+      "experts_per_layer": 16,
+      "experts_per_pool": 2,
+      "active_per_layer": 2,
+      "expert_hidden_width": 120,
+      "total": 122325504,
+      "routed": 32440320,
+      "common_including_shared": 89885184
+    },
+    {
+      "name": "domain_16_uniform_pool",
+      "experts_per_layer": 16,
+      "experts_per_pool": 2,
+      "active_per_layer": 2,
+      "expert_hidden_width": 120,
+      "total": 122325504,
+      "routed": 32440320,
+      "common_including_shared": 89885184
+    },
+    {
+      "name": "base_32_learned",
+      "experts_per_layer": 32,
+      "experts_per_pool": 4,
+      "active_per_layer": 2,
+      "expert_hidden_width": 64,
+      "total": 122685952,
+      "routed": 34603008,
+      "common_including_shared": 88082944
+    },
+    {
+      "name": "domain_32_learned",
+      "experts_per_layer": 32,
+      "experts_per_pool": 4,
+      "active_per_layer": 2,
+      "expert_hidden_width": 64,
+      "total": 122685952,
+      "routed": 34603008,
+      "common_including_shared": 88082944
+    },
+    {
+      "name": "base_64_learned",
+      "experts_per_layer": 64,
+      "experts_per_pool": 8,
+      "active_per_layer": 2,
+      "expert_hidden_width": 32,
+      "total": 121784832,
+      "routed": 34603008,
+      "common_including_shared": 87181824
+    },
+    {
+      "name": "domain_64_learned",
+      "experts_per_layer": 64,
+      "experts_per_pool": 8,
+      "active_per_layer": 2,
+      "expert_hidden_width": 32,
+      "total": 121784832,
+      "routed": 34603008,
+      "common_including_shared": 87181824
+    },
+    {
+      "name": "router_collection",
+      "models": 8,
+      "per_model": 15496576,
+      "total": 123972608,
+      "note": "Complete independent dense backbones; total cap applies to all models together"
+    }
+  ],
+  "train_tokens": 9855399480,
+  "val_tokens": 98589864,
+  "posthoc": "Classified base reuses a trained base checkpoint; it is not a fourth training recipe.",
+  "training_note": "Random token windows with replacement; token budget is not an exact corpus epoch.",
+  "recommended": "domain_16_uniform_pool.json"
+}

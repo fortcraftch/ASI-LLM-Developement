@@ -34,7 +34,7 @@ def load_model(checkpoint: Path, device: str = "cpu"):
     model.load_state_dict(ckpt["model"])
     model.to(device).eval()
     # Release optimizer and duplicated checkpoint tensors before building RAM backing.
-    metadata = {k: ckpt[k] for k in ("step", "val_loss", "pool_names", "experiment") if k in ckpt}
+    metadata = {k: ckpt[k] for k in ("step", "val_loss", "pool_names", "experiment", "training_recipe") if k in ckpt}
     return model, metadata
 
 
@@ -108,12 +108,15 @@ def domain_main():
     pool_names, pool_to_id = load_manifest(args.pool_manifest)
     model, ckpt = load_model(args.checkpoint)
     validate_pool_identity(model, ckpt, pool_names)
+    if model.config.routing_mode == 'uniform_pool':
+        args.max_pools = 1
     router = DomainSessionRouter(
         pool_names=pool_names,
         classifier_model=args.classifier_model,
         device=args.classifier_device,
         max_pools=args.max_pools,
         load_classifier=not args.no_classifier,
+        pool_manifest=json.loads(args.pool_manifest.read_text(encoding='utf-8')),
     )
     cache = ExpertCacheManager(args.device, max_hot_pools=args.max_hot_pools,
                                pin_memory=args.pin_memory, max_pinned_bytes=args.max_pinned_mib * 1024**2)

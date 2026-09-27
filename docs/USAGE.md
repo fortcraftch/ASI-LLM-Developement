@@ -5,6 +5,13 @@ Ejecutar desde la raíz con el entorno activado. En esta máquina se ha validado
 y verificar CUDA en PyTorch. Clasificador y tokenizer pueden descargarse la
 primera vez. Consultar opciones con `--help` en cualquier comando.
 
+## Nuevo experimento de 124M
+
+Las recetas del dataset completo están en `configs/experiment_124m_v1`.
+Consultar [TRAINING_124M.md](TRAINING_124M.md) para datos requeridos, comandos,
+reanudación y diferencias frente al piloto. `python -m asi design --help`
+describe el generador; `python -m asi chat router --help`, el banco de modelos independientes.
+
 ## Datos y entrenamiento — 1.1
 
 El dataset permanece en `fineweb_edu_specialized_pipeline/specialized_fineweb`;
@@ -276,6 +283,17 @@ La copia anterior del código y guías está en `results/refactor_backup/source.
 sin dataset ni checkpoints. No hay que descomprimirla para usar el proyecto.
 
 ## Comparación extensa preparada (opción 1)
+
+Para revisar lo ya ejecutado con palabras simples y gráficas:
+
+```powershell
+python -m asi graphs --output results/project_overview_v1
+# Si ya existe y quieres actualizar solo el panel:
+python -m asi graphs --output results/project_overview_v1 --refresh
+```
+
+Abrir `results/project_overview_v1/index.html`. Incluye PNG, SVG, valores y
+fuentes. Véase [RECAPITULACION.md](RECAPITULACION.md). No ejecuta checkpoints.
 
 Véase [COMPARISON.md](COMPARISON.md) para el protocolo, la cobertura congelada y
 los comandos futuros. La preparación actual está en

@@ -142,6 +142,7 @@ def write_summary(output,payload,mapping,curves,global_curves):
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--checkpoint',type=Path,required=True)
+    p.add_argument('--adapter',choices=['native','local'],default='native')
     p.add_argument('--architecture',type=Path,default=DEFAULT_ARCHITECTURE)
     p.add_argument('--data-root',type=Path,required=True)
     p.add_argument('--pool-manifest',type=Path,required=True)
@@ -163,7 +164,19 @@ def main():
     if not calibration_windows or not eval_windows: p.error('Need both calibration train windows and evaluation val windows')
     missing=[label for label,v in train_coverage.items() if not v['windows']]
     if missing: p.error(f'No calibration windows for domains: {missing}')
-    model,metadata=load_original_model(args.checkpoint,args.architecture)
+    if args.adapter == 'local':
+        from asi.runtime.generation import load_model, validate_pool_identity
+        from dataclasses import asdict
+        from asi import ROOT
+        model,metadata=load_model(args.checkpoint)
+        validate_pool_identity(model,metadata,list(manifest['pools']))
+        if model.config.routing_mode != 'learned':
+            p.error('Posthoc calibration requires a learned-router base, not a uniform-pool model')
+        args.architecture=ROOT/'asi/models/domain.py'
+        metadata.update(checkpoint=str(args.checkpoint.resolve()),checkpoint_sha256=file_sha256(args.checkpoint),
+                        architecture=str(args.architecture),architecture_sha256=file_sha256(args.architecture),config=asdict(model.config))
+    else:
+        model,metadata=load_original_model(args.checkpoint,args.architecture)
     if args.seq_len>model.config.block_size: p.error('seq-len exceeds model context')
     if not model.config.n_activated_experts<=args.experts_per_label<=model.config.n_routed_experts:
         p.error('experts-per-label must lie between native top-k and expert count')

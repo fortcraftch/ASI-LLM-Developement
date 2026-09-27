@@ -45,8 +45,13 @@ class RoutingTrace:
         stats = self.layers[layer_id]
         ids = indices.detach().cpu()
         w = weights.detach().float().cpu()
-        _, shadow = gate.route_logits(logits.detach(), None)
-        shadow = shadow.cpu()
+        if logits is None:
+            shadow = torch.empty((ids.shape[0],0),dtype=torch.long)
+            stats['shadow_available'] = False
+        else:
+            _, shadow = gate.route_logits(logits.detach(), None)
+            shadow = shadow.cpu()
+            stats['shadow_available'] = True
         stats['tokens'] += ids.shape[0]
         counts = torch.bincount(ids.flatten(), minlength=count).tolist()
         shadow_counts = torch.bincount(shadow.flatten(), minlength=count).tolist()

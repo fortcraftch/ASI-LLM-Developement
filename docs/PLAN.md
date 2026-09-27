@@ -4,6 +4,11 @@ La numeración **1.1–3.3** corresponde a cada elemento de las listas de los pa
 1, 2 y 3 de [TFG_original.txt](TFG_original.txt). El documento propone hipótesis;
 el código y los pilotos permiten comprobar solo una parte de ellas.
 
+La [revisión del documento](TFG_actualizado_2026-09-27.txt) añade los pasos **2.4**
+(programa dinámico) y **3.4** (modelos independientes). Su implementación parcial
+está registrada en `plan.json`; el [diseño de 124M](TRAINING_124M.md) explica las
+recetas disponibles y las mediciones aún pendientes.
+
 El registro completo está en [plan.json](plan.json). Consultarlo con
 `python -m asi plan` o `python -m asi plan 1.4` no carga modelos.
 

@@ -13,6 +13,9 @@ import math
 import os
 import random
 import time
+import sys
+import bisect
+import hashlib
 from dataclasses import asdict
 from pathlib import Path
 from asi import DATA_ROOT
@@ -110,8 +113,51 @@ class TokenShardStream:
         return x, y
 
 
+class RandomWindowStream:
+    """Sample windows across a pool by available token positions, with replacement."""
+    def __init__(self, paths, B, T, seed):
+        if min(B,T)<1: raise ValueError('Positive batch and context required')
+        self.B,self.T=B,T
+        self.rng=random.Random(seed)
+        self.paths=[];self.ends=[];self.identity=[]
+        total=0
+        for path in sorted(paths):
+            arr=np.load(path,mmap_mode='r')
+            valid=arr.ndim==1 and arr.dtype==np.uint16;size=arr.size;arr._mmap.close()
+            if not valid: raise ValueError('Expected one-dimensional uint16 shards')
+            if size>T:
+                total+=size-T;self.paths.append(path);self.ends.append(total)
+                self.identity.append((path.parent.name,path.name,int(size)))
+        if not total: raise ValueError('No shard can supply a full random window')
+
+    def next_batch(self):
+        rows=[]
+        for _ in range(self.B):
+            offset=self.rng.randrange(self.ends[-1]);idx=bisect.bisect_right(self.ends,offset)
+            start=offset-(self.ends[idx-1] if idx else 0)
+            arr=np.load(self.paths[idx],mmap_mode='r')
+            rows.append(np.array(arr[start:start+self.T+1],dtype=np.int64,copy=True));arr._mmap.close()
+        tokens=torch.from_numpy(np.stack(rows))
+        return tokens[:,:-1].contiguous(),tokens[:,1:].contiguous()
+
+    def state(self):
+        return {'kind':'random_windows','identity':self.identity,'B':self.B,'T':self.T,'rng':self.rng.getstate()}
+
+    def load_state(self,state):
+        if any(state.get(k)!=v for k,v in (('identity',self.identity),('B',self.B),('T',self.T))):
+            raise ValueError('Random stream dimensions or shard inventory changed on resume')
+        self.rng.setstate(state['rng'])
+
+
+def activate_training_pool(model, pool_id):
+    recipe=getattr(model,'training_recipe',None)
+    family=recipe['family'] if recipe else 'domain'
+    active=list(range(model.config.n_pools)) if family in ('base','router') else [pool_id]
+    model.set_active_pools(active)
+
+
 class PoolData:
-    def __init__(self, data_root: Path, manifest: PoolManifest, split: str, B: int, T: int):
+    def __init__(self, data_root: Path, manifest: PoolManifest, split: str, B: int, T: int, order='sequential', seed=1337):
         self.streams = {}
         for pool_name in manifest.names:
             shards = []
@@ -119,7 +165,8 @@ class PoolData:
                 category_dir = data_root / category
                 shards.extend(p for p in sorted(category_dir.glob(f"{split}_*.npy")) if not p.name.endswith(".part.npy"))
             if shards:
-                self.streams[pool_name] = TokenShardStream(shards, B, T)
+                self.streams[pool_name] = (RandomWindowStream(shards,B,T,seed+manifest.pool_id(pool_name))
+                                           if order=='random' else TokenShardStream(shards,B,T))
         if not self.streams:
             raise RuntimeError(f"No '{split}' shards were found under {data_root}")
 
@@ -145,7 +192,7 @@ class PoolScheduler:
         self.names = manifest.names
         weights = manifest.token_weights()
         total = float(sum(weights.values()))
-        self.probs = [weights[n] / total for n in self.names]
+        self.probs = [math.sqrt(weights[n]) if mode=='sqrt' else weights[n] / total for n in self.names]
 
     def sample(self, available):
         if not available:
@@ -201,12 +248,13 @@ def evaluate_by_pool(model, val_data: PoolData, manifest: PoolManifest, device: 
     results = {}
     total = 0.0
     count = 0
+    original_state = val_data.state()
     with torch.no_grad():
         for pool_name in manifest.names:
             if pool_name not in val_data.streams:
                 continue
             pool_id = manifest.pool_id(pool_name)
-            model.set_active_pools([pool_id])
+            activate_training_pool(model, pool_id)
             acc = 0.0
             for _ in range(steps_per_pool):
                 x, y = val_data.next_batch(pool_name)
@@ -219,6 +267,7 @@ def evaluate_by_pool(model, val_data: PoolData, manifest: PoolManifest, device: 
             total += acc
             count += 1
     overall = total / count if count else float("nan")
+    val_data.load_state(original_state)
     model.train()
     return overall, results
 
@@ -233,15 +282,26 @@ def save_checkpoint(path, model, optimizer, step, train_data, scheduler, val_los
         "train_state": train_data.state(),
         "pool_rng_state": scheduler.state(),
         "pool_names": pool_names,
-        "experiment": "domain_pool_restricted_moe_v1",
+        "experiment": ((getattr(model, 'training_recipe', None) or {}).get('family', 'domain') + "_training_v1"),
         "checkpoint_timing": "after_optimizer_step",
         "val_loss_timing": "before_this_step_update" if val_loss is not None else None,
+        "training_recipe": getattr(model,'training_recipe',None),
+        "training_settings": getattr(model,'training_settings',None),
+        "torch_rng_state": torch.get_rng_state(),
+        "cuda_rng_states": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
     }
     torch.save(payload, path)
 
 
 def main():
+    early=argparse.ArgumentParser(add_help=False)
+    early.add_argument('--recipe',type=Path)
+    selected,_=early.parse_known_args()
+    recipe=json.loads(selected.recipe.read_text(encoding='utf-8')) if selected.recipe else None
     p = argparse.ArgumentParser()
+    p.add_argument('--recipe',type=Path,help='Portable model/training configuration produced by design')
+    p.add_argument('--dry-run',action='store_true',help='Validate and count on meta; no weights allocated and no training')
+    p.add_argument('--data-order',choices=['sequential','random'],default='sequential')
     p.add_argument("--data-root", type=Path, default=DATA_ROOT)
     p.add_argument("--pool-manifest", type=Path, default=(DATA_ROOT / "expert_pools.json"))
     p.add_argument("--log-dir", type=Path, default=Path("log_domain"))
@@ -256,7 +316,7 @@ def main():
     p.add_argument("--save-interval", type=int, default=250)
     p.add_argument("--val-interval", type=int, default=250)
     p.add_argument("--val-steps-per-pool", type=int, default=1)
-    p.add_argument("--pool-sampling", choices=["uniform", "token"], default="uniform")
+    p.add_argument("--pool-sampling", choices=["uniform", "token", "sqrt"], default="uniform")
 
     p.add_argument("--n-routed-experts", type=int, default=16)
     p.add_argument("--experts-per-pool", type=int, default=2)
@@ -269,8 +329,14 @@ def main():
     p.add_argument("--min-lr-factor", type=float, default=0.1)
     p.add_argument("--warmup-steps", type=int, default=715)
     p.add_argument("--weight-decay", type=float, default=0.1)
+    if recipe:
+        p.set_defaults(**recipe['training'])
     args = p.parse_args()
+    if recipe and any(arg.split('=')[0] in ('--n-layer','--n-head','--n-embd','--n-routed-experts','--experts-per-pool','--n-activated-experts') for arg in sys.argv[1:]):
+        p.error('Set architecture dimensions in the recipe, not conflicting CLI overrides')
 
+    if min(args.batch_size,args.seq_len,args.total_batch_size,args.max_steps,args.val_interval,args.save_interval,args.val_steps_per_pool)<1:
+        p.error('Training sizes and intervals must be positive')
     if args.total_batch_size % (args.batch_size * args.seq_len) != 0:
         raise ValueError("total-batch-size must be divisible by batch-size * seq-len")
 
@@ -281,8 +347,29 @@ def main():
         torch.set_float32_matmul_precision("high")
 
     manifest = PoolManifest(args.pool_manifest)
+    if recipe:
+        from asi.models.design import validate_recipe, count_parameters
+        if recipe.get('pool_manifest_sha256') != hashlib.sha256(args.pool_manifest.read_bytes()).hexdigest():
+            p.error('Pool manifest differs from the frozen recipe')
+        recipe_config=validate_recipe(recipe,manifest.names)
+        recipe_config.block_size=recipe_config.max_seq_len=recipe_config.original_seq_len=args.seq_len
+        recipe_config.max_batch_size=args.batch_size
+        counts=count_parameters(asdict(recipe_config))
+        if counts['total'] > recipe['parameter_budget']:
+            p.error('Actual model exceeds total parameter budget')
+        if args.dry_run:
+            print(json.dumps({'family':recipe['family'],'parameters':counts,'pool_order':manifest.names,
+                              'effective_training':vars(args)},indent=2,default=str)); return
+    elif args.dry_run:
+        p.error('--dry-run requires --recipe')
+    if recipe:
+        dataset_manifest=args.data_root/'manifest.json'
+        if not dataset_manifest.is_file() or hashlib.sha256(dataset_manifest.read_bytes()).hexdigest()!=recipe['source_manifest_sha256']:
+            p.error('data-root must contain the exact full dataset manifest used to design this recipe')
+    if min(args.batch_size,args.seq_len,args.total_batch_size,args.max_steps,args.val_interval,args.save_interval,args.val_steps_per_pool)<1:
+        p.error('Training sizes and intervals must be positive')
     grad_accum = args.total_batch_size // (args.batch_size * args.seq_len)
-    print(f"device={args.device} | pools={len(manifest.names)} | experts/pool={args.experts_per_pool}")
+    print(f"device={args.device} | pools={len(manifest.names)} | experts/pool={recipe_config.experts_per_pool if recipe else args.experts_per_pool}")
     print(f"grad_accumulation_steps={grad_accum}")
 
     resume_ckpt = None
@@ -292,6 +379,14 @@ def main():
         model = GPT(config)
         model.load_state_dict(resume_ckpt["model"])
         start_step = int(resume_ckpt["step"]) + 1
+        if resume_ckpt.get('training_recipe') != recipe:
+            p.error('Resume requires the same training recipe (including family and pool)')
+        if recipe and asdict(config) != asdict(recipe_config):
+            p.error('Resume model/context/batch configuration differs from the recipe')
+    elif recipe:
+        config=recipe_config
+        model=GPT(config)
+        start_step=0
     else:
         config = GPTConfig(
             block_size=args.seq_len,
@@ -322,6 +417,11 @@ def main():
         model = GPT(config)
         start_step = 0
 
+    model.training_recipe=recipe
+    model.training_settings={k:getattr(args,k) for k in ('seed','pool_sampling','data_order','total_batch_size','batch_size','seq_len',
+        'max_steps','max_lr','min_lr_factor','warmup_steps','weight_decay')}
+    if resume_ckpt and resume_ckpt.get('training_settings') is not None and resume_ckpt['training_settings']!=model.training_settings:
+        p.error('Resume must preserve sampling, token budget, batch, seed and learning-rate schedule')
     validate_pools(model, manifest)
     if resume_ckpt is not None and resume_ckpt.get("pool_names") != manifest.names:
         raise ValueError("Resume pool identity/order differs from the checkpoint")
@@ -331,8 +431,16 @@ def main():
     if resume_ckpt is not None:
         optimizer.load_state_dict(resume_ckpt["optimizer"])
 
-    train_data = PoolData(args.data_root, manifest, "train", args.batch_size, args.seq_len)
-    val_data = PoolData(args.data_root, manifest, "val", args.batch_size, args.seq_len)
+    train_data = PoolData(args.data_root, manifest, "train", args.batch_size, args.seq_len,args.data_order,args.seed)
+    val_data = PoolData(args.data_root, manifest, "val", args.batch_size, args.seq_len,args.data_order,args.seed+100000)
+    if recipe and recipe['family']=='router':
+        name=recipe['pool']
+        train_data.streams={k:v for k,v in train_data.streams.items() if k==name}
+        val_data.streams={k:v for k,v in val_data.streams.items() if k==name}
+    if recipe:
+        required=[recipe['pool']] if recipe['family']=='router' else manifest.names
+        if set(required)-set(train_data.names()) or set(required)-set(val_data.names()):
+            raise ValueError('Required train/val pool shards are missing; verify the transferred dataset')
     validate_loader_against_model(train_data.names(), manifest)
     validate_loader_against_model(val_data.names(), manifest)
 
@@ -341,8 +449,17 @@ def main():
         train_data.load_state(resume_ckpt.get("train_state", {}))
         if resume_ckpt.get("pool_rng_state") is not None:
             scheduler.load_state(resume_ckpt["pool_rng_state"])
+        if resume_ckpt.get('torch_rng_state') is not None:
+            torch.set_rng_state(resume_ckpt['torch_rng_state'])
+        if torch.cuda.is_available() and resume_ckpt.get('cuda_rng_states') is not None:
+            torch.cuda.set_rng_state_all(resume_ckpt['cuda_rng_states'])
 
     args.log_dir.mkdir(parents=True, exist_ok=True)
+    (args.log_dir / 'run_metadata.json').write_text(json.dumps({
+        'recipe': recipe, 'settings': model.training_settings, 'arguments': vars(args),
+        'model': asdict(config), 'parameters': sum(p.numel() for p in model.parameters()),
+        'validation_aggregation': 'equal mean over pools',
+    }, indent=2, default=str), encoding='utf-8')
     log_file = args.log_dir / "log.txt"
     if start_step == 0:
         log_file.write_text("", encoding="utf-8")
@@ -373,7 +490,7 @@ def main():
         loss_accum = 0.0
         active_pool_name = scheduler.sample(train_data.names())
         active_pool_id = manifest.pool_id(active_pool_name)
-        model.set_active_pools([active_pool_id])
+        activate_training_pool(model, active_pool_id)
 
         for micro in range(grad_accum):
             x, y = train_data.next_batch(active_pool_name)

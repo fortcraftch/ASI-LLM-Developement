@@ -13,6 +13,15 @@ Empieza por el [mapa del TFG y protocolo](docs/PLAN.md), consulta los
 [comandos y migración](docs/USAGE.md) y los [resultados interpretados](docs/FINDINGS.md).
 Se conserva el [documento original](docs/TFG_original.txt).
 
+Para el nuevo dataset de 137 categorías y la RTX 5060 Ti de 16 GB, consulta el
+[plan de entrenamiento bajo 124M parámetros](docs/TRAINING_124M.md): ocho pools,
+parejas fijas, modelos base de control y modelos independientes por tema.
+
+Para una explicación sencilla, lee la [recapitulación](docs/RECAPITULACION.md).
+`python -m asi graphs` genera un panel local con gráficas de informes existentes,
+sin abrir modelos. La [comparación con AirLLM](docs/AIRLLM.md) distingue descarga
+de pesos y selección fija de expertos por contexto.
+
 La [comparación extensa de tres modelos](docs/COMPARISON.md) está preparada y
 pendiente de ejecución cuando termine su entrenamiento. `python -m asi comparison`
 separa preparación, registro de checkpoints, ejecución por trabajo y resumen.

@@ -122,7 +122,7 @@ class Gallery:
     def bars(self, title, modes, panels, note, source):
         ncols = 2
         nrows = math.ceil(len(panels)/ncols)
-        fig, axes = self.plt.subplots(nrows, ncols, figsize=(15, 1.2+nrows*3.3), squeeze=False)
+        fig, axes = self.plt.subplots(nrows, ncols, figsize=(15, 5.8 if nrows == 1 else 1.2+nrows*3.3), squeeze=False)
         fig.suptitle(title, fontsize=17, x=.035, ha='left', y=.985)
         names = ['\n'.join(textwrap.wrap(LABELS.get(m, m), 27)) for m in modes]
         colors = ['#247b92' if m in ('native','resident','unrestricted') else '#dc9146' if 'fixed' in m or 'uniform' in m else '#5666a5' for m in modes]
@@ -140,7 +140,8 @@ class Gallery:
             ax.set_axisbelow(True); ax.grid(axis='x', alpha=.15)
         for ax in list(axes.flat)[len(panels):]:
             ax.set_visible(False)
-        fig.subplots_adjust(left=.18, right=.98, top=.89, bottom=.1, hspace=.7, wspace=.85)
+        fig.subplots_adjust(left=.18, right=.98, top=.78 if nrows == 1 else .89,
+                            bottom=.20 if nrows == 1 else .1, hspace=.7, wspace=.85)
         fig.text(.035, .015, 'Alcance, unidades y fuentes en el panel HTML. Acierto de tokens no significa respuestas correctas.', fontsize=9, color='#4a5364')
         self.save(fig, title, note, source, {'modes': modes, 'panels': panels})
 

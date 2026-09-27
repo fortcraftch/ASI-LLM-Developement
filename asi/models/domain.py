@@ -52,6 +52,7 @@ class GPTConfig:
     n_limited_groups: int = 1
     score_func: Literal["softmax", "sigmoid"] = "softmax"
     route_scale: float = 1.0
+    routing_mode: Literal["learned", "uniform_pool"] = "learned"
 
     # MLA
     q_lora_rank: int = 0
@@ -612,6 +613,9 @@ class Gate(nn.Module):
         self.topk_groups = args.n_limited_groups
         self.score_func = args.score_func
         self.route_scale = args.route_scale
+        self.routing_mode = args.routing_mode
+        if self.routing_mode not in ('learned', 'uniform_pool'):
+            raise ValueError('Unknown routing mode')
         self.weight = nn.Parameter(torch.empty(args.n_routed_experts, args.n_embd))
         nn.init.normal_(self.weight, mean=0.0, std=0.02)
         self.bias = nn.Parameter(torch.empty(args.n_routed_experts, dtype=torch.float32)) if self.dim == 7168 else None
@@ -624,6 +628,17 @@ class Gate(nn.Module):
         x: torch.Tensor,
         allowed_expert_mask: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        if self.routing_mode == 'uniform_pool':
+            if allowed_expert_mask is None or allowed_expert_mask.dtype != torch.bool or allowed_expert_mask.shape != (self.weight.shape[0],):
+                raise ValueError('Uniform routing requires an explicit expert mask')
+            ids = allowed_expert_mask.nonzero(as_tuple=False).flatten()
+            if ids.numel() != self.topk:
+                raise ValueError('Uniform N/N requires exactly N allowed experts; select one pool')
+            indices = ids.expand(x.shape[0], -1)
+            weights = torch.full(indices.shape, self.route_scale/self.topk, device=x.device, dtype=x.dtype)
+            if self.routing_observer is not None:
+                self.routing_observer(self, x, None, weights, indices, allowed_expert_mask)
+            return weights, indices
         logits = linear(x, self.weight)
         weights, indices = self.route_logits(logits, allowed_expert_mask)
         if self.routing_observer is not None:
@@ -814,7 +829,7 @@ class MoE(nn.Module):
         down = self._grouped_linear(hidden, w2_active, offsets)
         down = down * route_weights.to(down.dtype).unsqueeze(-1)
         y = torch.zeros_like(x)
-        y.index_add_(0, token_ids, down)
+        y.index_add_(0, token_ids, down.to(y.dtype))
         return y
 
     def _forward_bmm(self, x, weights, indices, w1, w2, w3):
@@ -860,7 +875,7 @@ class MoE(nn.Module):
         flat_ids = original_tokens.reshape(-1)
         flat_down = down.reshape(-1, self.dim)
         valid = flat_ids >= 0
-        y.index_add_(0, flat_ids[valid], flat_down[valid])
+        y.index_add_(0, flat_ids[valid], flat_down[valid].to(y.dtype))
         return y
 
     def forward(self, x: torch.Tensor, allowed_expert_mask: Optional[torch.Tensor] = None) -> torch.Tensor:

@@ -1,0 +1,106 @@
+﻿Optimización, Mejora y Compresión de LLM
+
+
+
+
+ASI
+
+
+Tener expertos definidos en categorías que, sin necesidad de una función E (solo se usa para decidir entre N expertos de una pool más grande que N en esa categoría) se puedan cargar en GPU y mantener aprovechando que una conversación de programación no cambia de temática (muy bruscamente) o si lo hace será predecible a cuál otra puede cambiar.
+
+
+Este sistema utiliza carga de Expertos en uso en GPU, carga de expertos no en uso (si la VRAM disponible lo permite) cuantizados/comprimidos en GPU para cambios rápidos, expertos no usados pero con posible uso en RAM y el resto del modelo en SSD.
+
+
+Para decidir qué expertos se usarán durante la conversación solo hay que tener un multilabel classification capaz de detectar en qué temática se desarrolla el prompt y de esta forma cargar la pool de expertos correspondientes en GPU, a medida que se usa el modelo este puede mejorará su mecanismo hit/miss.
+
+
+El mecanismo hit/miss, al igual que en una cpu, intenta tener en “cache” los datos con más probabilidad de uso en el “programa actual”. En este caso no hay caché ni programa sino VRAM, RAM y chats/prompts, el programa debería de poder deducir qué pool de expertos relacionada puede necesitar dado un chat de cierta temática. Es normal que si la categoría cambia bruscamente el hit/miss falle ya que su implementación sirve para intentar minimizar el número de llamadas a disco.
+
+
+El resumen final es que este ASI es una separación de la arquitectura de una AGI en ASI 's más pequeñas que, debido a como son las conversaciones humanas, solo necesitaría usar 1 o 2 de estas ASI en GPU durante un chat. Si esta implementación funciona podríamos ejecutar LLM muy grandes en hardware que de normal no estaría ni cerca de poder usarlas, en algunos casos esta LLM puede ser lenta (por tener que hacer swapping) y és lo que se intentará minimizar hasta un punto en el que sea usable.
+
+
+Este mecanismo también forzará a que durante 1 inferencia no se esté cambiando de expertos todo el rato mediante a la separación de el input en varios prompts por categoría individual o simplemente un forzado de la selección de expertos al inicio de la inferencia.
+
+
+
+
+
+
+Pasos para el Desarrollo
+Paso 1
+
+
+1. Entrenar ASI de 0 con datos estructurados, probar hipótesis de que podemos controlar que expertos aprenden cierta información. (con 8/16/32/64 expertos en un contexto de 124M de parámetros) 
+2. Comprobar la degradación o mejora de la estructura ASI vs el modelo original dados los mismos parámetros.
+3. Comprobar el espacio que ocupa la estructura ASI en GPU, RAM y SSD vs el modelo original.
+4. Crear y probar el modelo hit/miss de caché para poder “deducir” que expertos que no están cargados en la GPU (deducible por categorizador) pueden ser necesarios por el tema de la conversación.
+5. Comprobar si durante una conversación de la misma temática / un workflow común los pesos que se mantienen en GPU o en RAM (alta prioridad) los cuales se han deducido por categorización son los usados durante esa conversación.
+Si no es así entonces estamos haciendo swapping y el problema no se soluciona.
+
+
+Paso 2
+
+
+1. Cargar y categorizar los pesos del modelo base para intentar usar la misma estructura que en el ASI (de esta forma modelos 20 veces más grandes que la GPU podrán ser usados sin altos tiempos por swapping).
+2. Comprobar la diferencia en tiempos, espacio y correcta entre un modelo con expertos categorizados ASI (solo uso de función E para expertos de la misma categoría, ej: 12 expertos para tecnologia usaran funcion E para decidir cual se elige en un problema de esa categoría) y un modelo con ejecución normal (función E).
+3. Comprobar diferencia entre un modelo ASI con N expertos activados de una pool de N expertos en esa categoría, N expertos activados de una pool de N*2 expertos en esa categoría y N expertos activados de una pool de N*X expertos en esa categoría. Todos los expertos de la pool de la categoría tienen que estar en gpu, esta prueba es para probar cuantización, compresión y si merece la pena tener más expertos entrenados por categoría de los usados(en pocas palabras jugar con mas expertos en VRAM en caso de que el hardware lo permita y asi usar funciones E).
+4. Carga dinámica (expertos simultáneos en VRAM, tipo de modelo ya adaptado al hardware disponible) y clasificador dinámico (número de categorías, especializaciones y subcategorias, expertos por categoria) para poder “customizar” con opciones simples modelos grandes con análisis de VRAM disponible y selección del usuario (precision vs tiempo de espera)
+
+
+Paso 3
+
+
+1. Si el modelo ha funcionado (sea el entrenado, el pre entrenado y posteriormente clasificado o los 2) escalar de arquitectura V3 a V4.1 flash y otros modelos de estructura MoE o segmentable.
+2. Una vez escalado dar acceso a internet, herramientas de programación etc etc.
+3. Probar a comprimir expertos de la misma pool no usados (si es que son importantes y no tenemos N sobre N) para no tener ni que hacer swapping, solo comprimir y descomprimir en GPU hasta cambio de categoría.
+4. Entrenar modelos separados en el dataset para hacer ASI individuales y compararlas a así implícita y explícitas en un AGI (cargando y sin cargar todo el backbone).
+
+
+Componentes de la Arquitectura
+
+
+Categorizador dinámico (estático para un modelo categorizado en entrenamiento) y carga dinámica: Crear un model loader dinámico que haga lo siguiente:
+
+
+* Dado un hardware limitado y especificado sea capaz de adaptar un mismo modelo (ej DeepSeekV3) para funcionar en distintos tamaños de hardware
+* Dado una (precision vs velocidad) dada por el usuario y un hardware limitado sea capaz de adaptar los N expertos del modelo a una categorización y subcategorización más o menos extensa para la carga de expertos en VRAM (si hay mucho hardware disponible se categoriza más finamente que si no para poder dar respuestas más complejas)
+
+
+Categorizador del input: Crear un modelo ligero que se tendrá que ejecutar dentro del backbone del modelo ya cargado y que sea capaz de hacer lo siguiente:
+
+
+* Categorizar en multilabel un input para saber a que expertos llamar, esta categorización se puede hacer tan fina como el categorizador dinámico sea configurado
+* Comprobar que categoria es mas dominante si es que hay varias labels en el prompt y decidir entre las 2 siguientes opciones (elegir el grupo de expertos que de media sean capaz de responder mejor las categorías del input, o como opción predeterminada, convertir el input en múltiples prompts de categorías individuales y enlazar el resultado para poder elegir los expertos adecuados)
+* El categorizador de input deberá de corresponder a las categorías de categorizador dinámico o a las categorías usadas para entrenar un modelo con datos categorizados.
+Selector Hit/Miss: Crear un mecanismo capaz de dada una categoría/s de input y unos expertos ya categorizados (pre o post categorizados) sea capaz de hacer lo siguiente:
+
+
+* Decidir que expertos concretos se han de cargar en VRAM ,colaborando con la carga dinámica del modelo, mediante la importancia que tiene cada experto para la respuesta.
+* Decidir qué expertos pueden ser necesarios para guardarlos en RAM y evitar hacer swapping a disco.
+* Guardar en una estructura de datos las predicciones que se han hecho para conversaciones y preguntas individuales para intentar deducir que expertos son más probables de llamarse en ciertas situaciones o dado ciertos inputs por adelantado (aumentar el hit de expertos de RAM a VRAM o directamente de expertos en la propia VRAM).
+
+
+Gestor V: gestor de expertos en VRAM y RAM que pueda hacer lo siguiente:
+
+
+* comprimir/descomprimir los expertos que entran a RAM y que se llaman a VRAM, en caso de tener N+C expertos en VRAM compara funciones E y comprime/quantiza los expertos para dar más variabilidad a las respuestas.
+
+
+
+
+Arquitecturas de los modelos
+
+
+Para comprobar si toda esta hipótesis es posible de desarrollar se llevarán a cabo 4 arquitecturas de modelo distintas con varias pruebas y entrenamientos en cada una de ellas.
+
+
+* Modelo base: modelo predeterminado y pre entrenado como línea base de comparación en los test (se usará una librería de python estándar para cargar modelos más grandes que el hardware)
+
+
+* Modelo base categorizado: modelo predeterminado y pre entrenado que al querer usarlo se pasara por la carga dinámica y el categorizador dinámico para separar sus expertos en pools y cargarlos dinámicamente (se busca la reducción de VRAM necesaria para poder usar modelos ya existentes con una degradación mínima)
+
+
+* Modelo categorizado: modelo entrenado en datos ya categorizados y forzado a tener categorías en cada experto (se busca comparar un modelo base categorizado con un modelo ya categorizado desde su entrenamiento, no existen modelos públicos con estas características y este sería una versión experimental)
+* Modelo Router: conjunto de modelos base entrenados en una categoría de los datos y que han de tener el tamaño para entrar enteros en VRAM (se busca comparar un modelo categorizado con varios modelos mas pequeños que se entrenan en categorías sin forzarlas en partes de este modelo más grande, puede introducir problemas de tiempo si el backbone cambia entre estos modelos pequeños)

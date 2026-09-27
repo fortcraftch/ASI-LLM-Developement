@@ -14,7 +14,7 @@ from asi.plan import load_plan
 class StructureTests(unittest.TestCase):
     def test_plan_references_existing_files_and_all_steps(self):
         steps = load_plan()
-        expected = {'1.1', '1.2', '1.3', '1.4', '1.5', '2.1', '2.2', '2.3', '3.1', '3.2', '3.3'}
+        expected = {'1.1', '1.2', '1.3', '1.4', '1.5', '2.1', '2.2', '2.3', '2.4', '3.1', '3.2', '3.3', '3.4'}
         self.assertEqual({s['id'] for s in steps}, expected)
         self.assertEqual(len(steps), len(expected))
         for step in steps:

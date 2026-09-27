@@ -7,6 +7,7 @@ import math
 from pathlib import Path
 
 from asi import ROOT
+from asi.data.identity import manifest_sha256
 
 
 def pool_manifest(source, taxonomy):
@@ -98,7 +99,7 @@ def main():
     source=json.loads(args.manifest.read_text(encoding='utf-8'))
     taxonomy=json.loads(args.taxonomy.read_text(encoding='utf-8'))
     pools=pool_manifest(source,taxonomy); names=list(pools['pools'])
-    source_hash=hashlib.sha256(args.manifest.read_bytes()).hexdigest()
+    source_hash=manifest_sha256(args.manifest)
     pools_hash=hashlib.sha256(json.dumps(pools,indent=2).encode('utf-8')).hexdigest()
     recipes={}; summary=[]
     training={'total_batch_size':262144,'batch_size':2,'seq_len':1024,

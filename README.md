@@ -17,6 +17,10 @@ Para el nuevo dataset de 137 categorías y la RTX 5060 Ti de 16 GB, consulta el
 [plan de entrenamiento bajo 124M parámetros](docs/TRAINING_124M.md): ocho pools,
 parejas fijas, modelos base de control y modelos independientes por tema.
 
+El [runtime adaptativo opcional](docs/ADAPTIVE.md) añade selección por memoria y
+calidad calibrada, pools simultáneos, una cabeza clasificadora integrada y caché
+INT8 en GPU, sin modificar las recetas de entrenamiento.
+
 Para una explicación sencilla, lee la [recapitulación](docs/RECAPITULACION.md).
 `python -m asi graphs` genera un panel local con gráficas de informes existentes,
 sin abrir modelos. La [comparación con AirLLM](docs/AIRLLM.md) distingue descarga

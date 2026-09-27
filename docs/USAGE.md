@@ -7,6 +7,10 @@ primera vez. Consultar opciones con `--help` en cualquier comando.
 
 ## Nuevo experimento de 124M
 
+Para desarrollar inferencia mientras se entrena la LLM: [runtime adaptativo](ADAPTIVE.md).
+`python -m asi adaptive` muestra planificación/ejecución, calibración y entrenamiento
+de la cabeza clasificadora. Son modos opcionales; `train` y `chat domain` conservan su comportamiento.
+
 Las recetas del dataset completo están en `configs/experiment_124m_v1`.
 Consultar [TRAINING_124M.md](TRAINING_124M.md) para datos requeridos, comandos,
 reanudación y diferencias frente al piloto. `python -m asi design --help`

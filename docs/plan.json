@@ -138,10 +138,15 @@
       "asi/models/design.py",
       "asi/runtime/routing.py",
       "configs/taxonomy_8.json",
-      "docs/TRAINING_124M.md"
+      "docs/TRAINING_124M.md",
+      "asi/runtime/adaptive.py",
+      "asi/runtime/classifier.py",
+      "asi/experiments/adaptive.py",
+      "docs/ADAPTIVE.md",
+      "tests/test_adaptive.py"
     ],
-    "available": "Recetas con presupuesto total comprobado, taxonomía exhaustiva y clasificador adaptado al manifiesto.",
-    "pending": "Selección automática por memoria y calidad, división multilabel y nivel comprimido residente en GPU."
+    "available": "Planificador con estimación de VRAM y filtro por NLL calibrada; unión de pools sin transferencias por token; cabeza clasificadora con embeddings compartidos y congelados. Componentes opcionales probados con pesos sintéticos.",
+    "pending": "Calibrar calidad y memoria en los checkpoints entrenados; entrenar la cabeza definitiva con ejemplos multietiqueta; selección entre arquitecturas, evaluación independiente y preguntas mixtas."
   },
   {
     "id": "3.1",
@@ -162,12 +167,16 @@
   {
     "id": "3.3",
     "title": "Expertos comprimidos dentro de GPU",
-    "status": "pendiente; exportador previo disponible",
+    "status": "prototipo implementado; pendiente de evaluación real",
     "files": [
-      "asi/quantization.py"
+      "asi/quantization.py",
+      "asi/runtime/adaptive.py",
+      "asi/experiments/adaptive.py",
+      "tests/test_adaptive.py",
+      "docs/ADAPTIVE.md"
     ],
-    "available": "Exportación offline de pesos INT8 y escalas.",
-    "pending": "Tier comprimido residente en GPU, kernels/descompresión y política de transición; medir buffers temporales, pérdida y coste frente a RAM."
+    "available": "Caché INT8 por fila físicamente residente en GPU y promoción a pesos flotantes al cambiar de contexto. Aciertos warm sin transferencias de pesos desde RAM y ausencia de cargas durante decode probados en CUDA con modelo sintético.",
+    "pending": "Medir degradación, cambios de contexto, memoria y latencia con modelos entrenados; integrar arranque desde shards SSD; kernels de cómputo INT8 no implementados."
   },
   {
     "id": "3.4",

@@ -15,7 +15,6 @@ import random
 import time
 import sys
 import bisect
-import hashlib
 from dataclasses import asdict
 from pathlib import Path
 from asi import DATA_ROOT
@@ -26,6 +25,7 @@ import torch
 import torch.nn.functional as F
 
 from asi.models.domain import GPT, GPTConfig
+from asi.data.identity import manifest_matches
 
 
 class PoolManifest:
@@ -349,7 +349,7 @@ def main():
     manifest = PoolManifest(args.pool_manifest)
     if recipe:
         from asi.models.design import validate_recipe, count_parameters
-        if recipe.get('pool_manifest_sha256') != hashlib.sha256(args.pool_manifest.read_bytes()).hexdigest():
+        if not manifest_matches(args.pool_manifest, recipe.get('pool_manifest_sha256')):
             p.error('Pool manifest differs from the frozen recipe')
         recipe_config=validate_recipe(recipe,manifest.names)
         recipe_config.block_size=recipe_config.max_seq_len=recipe_config.original_seq_len=args.seq_len
@@ -364,7 +364,7 @@ def main():
         p.error('--dry-run requires --recipe')
     if recipe:
         dataset_manifest=args.data_root/'manifest.json'
-        if not dataset_manifest.is_file() or hashlib.sha256(dataset_manifest.read_bytes()).hexdigest()!=recipe['source_manifest_sha256']:
+        if not manifest_matches(dataset_manifest, recipe['source_manifest_sha256']):
             p.error('data-root must contain the exact full dataset manifest used to design this recipe')
     if min(args.batch_size,args.seq_len,args.total_batch_size,args.max_steps,args.val_interval,args.save_interval,args.val_steps_per_pool)<1:
         p.error('Training sizes and intervals must be positive')

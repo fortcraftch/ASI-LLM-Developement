@@ -16,10 +16,25 @@ from asi.experiments.train import RandomWindowStream, activate_training_pool
 from asi.analysis.experts import RoutingTrace
 from asi.runtime.routing import DomainSessionRouter
 from asi.runtime.ensemble import IndependentModelRouter
+from asi.data.identity import manifest_matches, manifest_sha256
 from test_expert_runtime import tiny
 
 
 class DesignTests(unittest.TestCase):
+    def test_manifest_identity_survives_checkout_line_endings_only(self):
+        lf = b'{\n  "pools": {"a": 1, "b": 2}\n}\n'
+        crlf = lf.replace(b'\n', b'\r\n')
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'manifest.json'
+            for data in (lf, crlf):
+                path.write_bytes(data)
+                for original in (lf, crlf):
+                    self.assertTrue(manifest_matches(path, hashlib.sha256(original).hexdigest()))
+                self.assertEqual(manifest_sha256(path), hashlib.sha256(lf).hexdigest())
+            for changed in (lf.replace(b'"a": 1', b'"a": 3'), lf.replace(b'"a": 1, "b": 2', b'"b": 2, "a": 1')):
+                path.write_bytes(changed)
+                self.assertFalse(manifest_matches(path, hashlib.sha256(crlf).hexdigest()))
+
     def test_uniform_training_bypasses_E_and_freezes_inactive_experts(self):
         config=tiny().config;config.routing_mode='uniform_pool'
         model=GPT(config).train();model.set_active_pools([1])

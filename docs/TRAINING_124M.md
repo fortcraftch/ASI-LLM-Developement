@@ -64,6 +64,8 @@ python -m asi train --recipe "$recipes/domain_16_uniform_pool.json" --pool-manif
 
 El dry-run comprueba configuración y parámetros sin cargar pesos; **no valida VRAM ni lee los shards**. Probar después un entrenamiento corto en una carpeta independiente:
 
+Si una copia antigua en Linux muestra `Pool manifest differs from the frozen recipe`, actualizar `asi/experiments/train.py` y el nuevo `asi/data/identity.py`: la comprobación original confundía los saltos de línea CRLF/LF con cambios del manifiesto. La versión corregida admite ambas representaciones y sigue rechazando cambios de datos u orden de pools. No regenerar la receta ni sustituir sus hashes para ocultar una discrepancia real.
+
 ```powershell
 python -m asi train --recipe "$recipes/domain_16_uniform_pool.json" --pool-manifest "$recipes/expert_pools.json" --data-root $data --device cuda --max-steps 10 --val-steps-per-pool 1 --val-interval 5 --save-interval 5 --log-dir results/smoke_124m
 ```
@@ -120,6 +122,6 @@ El comando `python -m asi design --output configs/nuevo_experimento` genera rece
 
 Las variantes de 32/64 conservan E dentro del pool: para evitar transferencias por token se debe alojar el pool completo (4/8 expertos por capa), aunque solo dos computen por token. La de ocho activa uno; no es una comparación top-2. Cambiar el número de expertos manteniendo el límite obliga a cambiar su anchura y también afecta a los módulos compartidos: las diferencias no se pueden atribuir solo al número de expertos.
 
-La primera entrega del paso 2.4 permite definir taxonomía, contar parámetros y adaptar el clasificador externo a los dominios del manifiesto. El paso 3.4 tiene entrenamiento y selección de modelos independientes. **Quedan pendientes** la decisión automática según hardware/calidad, ejecutar varias etiquetas simultáneas con reparto de memoria, entrenar un clasificador integrado y mantener expertos comprimidos en GPU. El presupuesto de parámetros es de la LLM; el clasificador externo tiene su propio coste y debe medirse por separado.
+La primera entrega del paso 2.4 permite definir taxonomía, contar parámetros y adaptar el clasificador externo a los dominios del manifiesto. El paso 3.4 tiene entrenamiento y selección de modelos independientes. La ampliación opcional descrita en [ADAPTIVE.md](ADAPTIVE.md) implementa una primera decisión por memoria/calidad calibrada, unión de pools, entrenamiento de una cabeza clasificadora y caché INT8 en GPU. **Quedan pendientes sus entrenamientos definitivos y evaluación real**; las recetas de esta guía no cambian. El presupuesto de parámetros es de la LLM; el clasificador externo tiene su propio coste y debe medirse por separado.
 
 No hay todavía resultados de calidad ni de velocidad de estas nuevas arquitecturas. Las pruebas unitarias verifican comportamiento del código; no sustituyen los entrenamientos y evaluaciones del TFG.

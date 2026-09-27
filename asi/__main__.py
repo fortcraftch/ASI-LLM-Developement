@@ -5,6 +5,11 @@ import sys
 
 
 COMMANDS = {
+    'adaptive': {
+        'run': ('asi.runtime.adaptive', 'main', 'Planificar y ejecutar pools simultáneos con memoria limitada'),
+        'evaluate': ('asi.experiments.adaptive', 'main', 'Calibrar degradación de mezclas y expertos INT8'),
+        'train-classifier': ('asi.runtime.classifier', 'main', 'Entrenar una cabeza multietiqueta con embeddings congelados'),
+    },
     'design': ('asi.models.design', 'main', 'Diseñar pools y arquitecturas bajo un presupuesto exacto de parámetros'),
     'graphs': ('asi.analysis.plots', 'main', 'Explicar y graficar pruebas ya ejecutadas, sin cargar modelos'),
     'comparison': ('asi.experiments.comparison', 'main', 'Preparar y ejecutar por separado la comparación de tres modelos'),

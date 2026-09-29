@@ -2,13 +2,17 @@
 
 Queremos que un modelo grande funcione en una GPU pequeña. Para conseguirlo,
 intentamos mantener en la GPU solo los expertos que necesita una conversación y
-dejar el resto en la RAM del ordenador. La dificultad es hacerlo sin estar
+dejar el resto entre la RAM disponible y el disco. La dificultad es hacerlo sin estar
 moviendo expertos continuamente y sin perder demasiada calidad.
 
 Esta explicación describe principalmente los pilotos iniciales con el checkpoint
 local. Las recetas de [124M](TRAINING_124M.md) y el modelo público
 [OLMoE](PUBLIC_MOE.md) tienen arquitecturas distintas. El estado actual por paso
 está en [plan.json](plan.json).
+
+La [actualización para el TFG](TFG_estado_actual_2026-09-29.md) recoge también
+clasificador, caché INT8, reinicio del entrenamiento y recuperación con LoRA.
+Los pilotos históricos descritos aquí no representan por sí solos ese estado posterior.
 
 Las [gráficas de las pruebas realizadas](../results/project_overview_v1/index.html)
 se generan leyendo informes guardados: no vuelven a ejecutar el modelo.

@@ -1,5 +1,23 @@
 # Resultados actuales e interpretación
 
+## Preparación del estudio ampliado v3 — 29/09/2026
+
+Construidos 3.745 ejemplos train, 168 dev y 180 test a partir de fuentes públicas
+fijadas; los temas se reservan mediante reglas léxicas y se filtran duplicados de
+plantilla detectables. Calibradas selecciones anidadas de 16/32 expertos usando
+24 ejemplos train. Guardadas cuatro referencias nativas con EOS y distribuciones
+completas: 74,47 MiB y 70,71 s de preparación agrupada con caché RAM de 256 MiB.
+Los hashes, formas y normalización de probabilidades se comprobaron.
+
+Pasaron 110 tests y dos actualizaciones técnicas con router + LoRA: distilación
+real de 169 tokens y CE de 384 tokens, con picos GPU de 7,59 y 8,53 GiB y cero
+cargas de expertos dentro del paso. Los pesos de estas pruebas se descartaron.
+
+Esto valida preparación e infraestructura, **no mejora de calidad**. El plan
+contiene tres ajustes por tres semillas; sus entrenamientos y la revisión de
+respuestas no se han ejecutado. Fuentes, limitaciones y comandos en
+[RECOVERY_V3.md](RECOVERY_V3.md).
+
 Se conservan pilotos históricos y las nuevas comprobaciones indicadas por fecha. Los originales permanecen en
 `results/`, excluido de Git. Reorganizar código no constituye un nuevo experimento.
 

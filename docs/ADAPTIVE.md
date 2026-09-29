@@ -19,7 +19,7 @@ Con la receta de dos expertos por pool, seleccionar `health,biology` activa **cu
 
 La LLM categorizada se entrena inicialmente con una pareja por entrada. Mezclar dos parejas es una variante de inferencia fuera de esa condición de entrenamiento: puede ayudar o empeorar. No se promete conservar calidad. En arquitecturas con más de dos expertos por pool, esta política ejecuta todos los expertos de la unión, y por tanto también cambia el cómputo frente a top-2.
 
-El programa no descarta etiquetas silenciosamente para cumplir el presupuesto. Si no caben, devuelve `status: blocked`. No implementa todavía una descomposición de la pregunta en subtareas ni intercambio por token. La función `ContextMixture` instala el cambio solo dentro de su contexto y restaura el routing original al salir.
+El programa no descarta etiquetas silenciosamente para cumplir el presupuesto. Si no caben, devuelve `status: blocked`. Este runtime no divide por sí solo la pregunta ni intercambia expertos por token. El comando separado `asi tasks` planifica subtareas explícitas y sus dependencias; véase [CLASSIFIER_DATA_TASKS.md](CLASSIFIER_DATA_TASKS.md). La función `ContextMixture` instala el cambio solo dentro de su contexto y restaura el routing original al salir.
 
 ## Planificar y ejecutar
 

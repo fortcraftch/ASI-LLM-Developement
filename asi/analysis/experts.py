@@ -1,5 +1,5 @@
 """Opt-in routing diagnostics. Cross-layer edges are associations, not calls."""
-from collections import Counter, defaultdict
+from collections import Counter
 import json
 from pathlib import Path
 import torch

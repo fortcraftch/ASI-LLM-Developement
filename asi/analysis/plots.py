@@ -160,7 +160,13 @@ class Gallery:
 def draw_report(g, path):
     d = read(path); summary = d.get('summary', {})
     study = path.parent.name
-    if d.get('completed') and d.get('kind')=='recovery_comparison':
+    if d.get('completed') and d.get('kind')=='recovery_expanded':
+        names=['Original nativo']+[r['adaptation']+' · K='+r['mask'] for r in d['summary']]
+        g.bars('Recuperación frente al modelo nativo · '+study,names,[
+            ('Error sobre respuestas reservadas','CE media por ejemplo',[d['native_ce']]+[r['ce_mean'] for r in d['summary']])],
+            'La media agrupa semillas; la desviación entre semillas está en report.json. '
+            'CE no equivale a corrección. Consultar la revisión ciega de respuestas y los resultados por semilla.',path)
+    elif d.get('completed') and d.get('kind')=='recovery_comparison':
         rows=[]
         for mask in sorted({r['mask'] for r in d['rows']},key=int):
             rows.append(next(r for r in d['rows'] if r['mask']==mask and r['stage']=='before'))
@@ -172,7 +178,7 @@ def draw_report(g, path):
             ('Repetición en generaciones libres','% de trigramas repetidos',[100*r['repeated_trigram_fraction'] for r in rows])],
             'Mismos datos, exposiciones y banco de selecciones; LoRA añade parámetros y cómputo. '
             'Sin ajuste también tiene expertos restringidos: no es el modelo original completo. '
-            'Piloto sintético de una semilla. Menos repetición puede significar respuestas demasiado cortas; revisar textos y corrección.',path)
+            'Comparación por semilla; consultar procedencia del corpus. Menos repetición puede significar respuestas demasiado cortas; revisar textos y corrección.',path)
     elif d.get('completed') and 'test_before' in d and d.get('settings',{}).get('supervised'):
         modes,errors,repetition=[],[],[]
         for mask in d['test_before']['masks']:

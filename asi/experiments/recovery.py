@@ -2,7 +2,6 @@
 import argparse
 import json
 from pathlib import Path
-import random
 import re
 import time
 import statistics
@@ -13,6 +12,7 @@ from asi.taxonomy import digest
 from asi.models.olmoe_storage import load_disk_backed
 from asi.models.hf_olmoe import OlmoeExpertCache, CategoryCalibration
 from asi.models.recovery_lora import ExpertLoRA
+from asi.experiments.recovery_protocol import TeacherRow, teacher_identity, training_order, task_metrics, padded_batch
 from asi.experiments.public_moe import read_lock, input_ids, choose_capacity, hardware, check_rss, decode, sha256
 
 
@@ -28,6 +28,13 @@ def read_examples(path):
     texts = [r['prompt'].strip().casefold() for r in rows]
     if len(set(texts)) != len(texts) or any(not r['answer'].strip() or not r['prompt'].strip() for r in rows):
         raise ValueError('Duplicate prompts or empty answers')
+    for field in ('topic','template_group'):
+        membership={}
+        for row in rows:
+            if field in row:
+                membership.setdefault(row[field],set()).add(row['split'])
+        if any(len(splits)>1 for splits in membership.values()):
+            raise ValueError('Cross-split '+field+' leakage')
     return content
 
 
@@ -36,7 +43,7 @@ def supervised_rows(corpus, tokenizer, max_length):
     if tokenizer.eos_token_id is None:
         raise ValueError('Supervised recovery requires an EOS token')
     for row in corpus['examples']:
-        prompt = input_ids(tokenizer, row['prompt'])[0].tolist()
+        prompt = input_ids(tokenizer, row['prompt'],limit=max_length)[0].tolist()
         answer = tokenizer.encode(row['answer'], add_special_tokens=False) + [tokenizer.eos_token_id]
         if len(prompt)+len(answer) > max_length:
             raise ValueError('Example exceeds length budget: '+row['id'])
@@ -81,7 +88,7 @@ def robust_score(result, baseline):
 
 def generation_metrics(tokens, text, row):
     triples = [tuple(tokens[i:i+3]) for i in range(max(0,len(tokens)-2))]
-    return {'repeated_trigram_fraction': 1-len(set(triples))/len(triples) if triples else 0.,
+    return {**task_metrics(text,row), 'repeated_trigram_fraction': 1-len(set(triples))/len(triples) if triples else 0.,
             'exact_match': text.strip()==row['expected_exact'] if 'expected_exact' in row else None,
             'note': 'Repetition is a diagnostic, not semantic correctness; exact match only for explicit exact-answer tasks.'}
 
@@ -93,6 +100,10 @@ def compare_reports(paths):
     first=reports[0]
     settings=('supervised','steps','seed','lr','alpha','active','experts','mask_sizes','max_length','new_tokens','generation_per_category')
     for report in reports[1:]:
+        if report.get('teacher_manifest_sha256') != first.get('teacher_manifest_sha256'):
+            raise ValueError('Teacher references differ')
+        if any(report['settings'].get(k,0)!=first['settings'].get(k,0) for k in ('curriculum_32_steps','teacher_eos')):
+            raise ValueError('Curriculum or teacher objective differs')
         if report['identity']!=first['identity'] or any(report['settings'][k]!=first['settings'][k] for k in settings):
             raise ValueError('Different data, masks, source or training/generation protocol')
         if [(r['id'],r['mask']) for r in report['steps']]!=[(r['id'],r['mask']) for r in first['steps']]:
@@ -109,16 +120,20 @@ def compare_reports(paths):
                 records=report['test_'+stage]['masks'][mask]['records']
                 generations=[r for r in report['generations'] if r['stage']==stage and r['mask']==mask]
                 exact=[r['exact_match'] for r in generations if r['exact_match'] is not None]
+                numeric=[r['task_correct'] for r in generations if r.get('task_correct') is not None]
+                formats=[r['format_pass'] for r in generations if r.get('format_pass') is not None]
                 rows.append({'source':str(path),'adaptation':report['settings']['adaptation'],'mask':mask,'stage':stage,
                     'test_examples':len(records),'ce':statistics.mean(r['ce'] for r in records),
                     'generated_examples':len(generations),'exact_passed':sum(exact),'exact_tasks':len(exact),
+                    'numeric_passed':sum(numeric),'numeric_tasks':len(numeric),
+                    'format_passed':sum(formats),'format_tasks':len(formats),
                     'repeated_trigram_fraction':statistics.mean(r['repeated_trigram_fraction'] for r in generations),
                     'expert_loads_during_generation':sum(r['cache_after']['loads']-r['cache_before']['loads'] for r in generations),
                     'selected_step':report['selected_step'],'trainable_parameters':report['trainable_parameters'],
                     'peak_training_gib':report['peak_cuda_bytes']/2**30,
                     'training_with_validation_seconds':report['training_with_validation_seconds']})
     return {'kind':'recovery_comparison','completed':True,'identity':first['identity'],'rows':rows,
-            'limitations':['Synthetic single-seed pilot; no semantic judge or external benchmark.',
+            'limitations':['Per-seed comparison; use independent seeds and inspect corpus provenance.',
                            'Exact matches cover only explicit literal-answer tasks, not all generations.',
                            'Repetition can improve by premature EOS; inspect lengths and generated text.',
                            'Same training exposure, but different trainable parameter and compute budgets.']}
@@ -198,13 +213,16 @@ def evaluate(model, cache, rows, mapping, active, device, alpha):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action', choices=['compare','calibrate', 'prepare', 'train', 'evaluate'])
+    p.add_argument('action', choices=['compare','calibrate', 'prepare', 'native', 'train', 'evaluate'])
     p.add_argument('--reports',type=Path,nargs='+',help='Completed reports for offline comparison')
     p.add_argument('--model-dir', type=Path, default=ROOT/'public_models/olmoe')
     p.add_argument('--study', type=Path, default=ROOT/'results/olmoe_routing_study_v1.json')
     p.add_argument('--examples', type=Path, default=ROOT/'configs/recovery_pilot_v1.json')
     p.add_argument('--teacher-dir', type=Path, default=ROOT/'results/recovery_teacher_v1')
     p.add_argument('--resume-teacher', action='store_true', help='Reuse verified examples from a partial teacher manifest')
+    p.add_argument('--teacher-eos', action='store_true', help='V3 shared native teacher with EOS, independent of student masks')
+    p.add_argument('--prepare-limit', type=int, default=0, help='Profile N new teacher examples; partial manifests cannot train')
+    p.add_argument('--curriculum-32-steps', type=int, default=0, help='Start with 32 residents, then mix 32/16')
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--checkpoint', type=Path)
     p.add_argument('--supervised', action='store_true', help='Assistant-token CE plus EOS, no teacher preparation')
@@ -214,6 +232,7 @@ def main():
     p.add_argument('--generation-per-category', type=int, default=1)
     p.add_argument('--skip-generation', action='store_true', help='Evaluate checkpoint losses and transitions without repeating free generation')
     p.add_argument('--calibration-per-category', type=int, default=4)
+    p.add_argument('--reference-batch-size', type=int, default=1, help='Batch native calibration/teacher forwards; not student training')
     p.add_argument('--experts', type=int, default=32)
     p.add_argument('--active', type=int, default=8)
     p.add_argument('--steps', type=int, default=24)
@@ -224,6 +243,7 @@ def main():
     p.add_argument('--max-length', type=int, default=96)
     p.add_argument('--new-tokens', type=int, default=32)
     p.add_argument('--ram-gib', type=float, default=32)
+    p.add_argument('--expert-ram-gib', type=float, default=.25, help='Upper bound for adaptive RAM expert cache, not a reservation')
     args = p.parse_args()
     if args.action=='compare':
         if args.output.exists() or not args.reports: p.error('Provide --reports and a fresh output directory')
@@ -237,17 +257,24 @@ def main():
     if args.action == 'evaluate' and args.checkpoint is not None:
         loaded_checkpoint = torch.load(args.checkpoint, map_location='cpu', weights_only=True)
         settings = loaded_checkpoint.get('recovery_settings', {})
-        for key in ('supervised','adaptation','rank','mask_sizes'):
+        for key in ('supervised','adaptation','rank','mask_sizes','teacher_eos'):
             if key in settings: setattr(args, key, settings[key])
     if args.supervised:
         args.alpha = 1.
         if args.action == 'prepare': p.error('Supervised mode does not need a teacher; use train')
-    if args.rank < 1 or args.generation_per_category < 1:
+    if args.rank < 1 or args.generation_per_category < 1 or args.reference_batch_size<1:
         p.error('Rank and generation count must be positive')
+    if args.prepare_limit < 0 or (args.prepare_limit and args.action!='prepare'):
+        p.error('--prepare-limit must be nonnegative and is only for prepare')
+    if args.curriculum_32_steps < 0 or (args.curriculum_32_steps and
+            (set(args.mask_sizes or [])!={32,16} or args.curriculum_32_steps>=args.steps)):
+        p.error('Curriculum requires --mask-sizes 32 16 and warmup smaller than --steps')
     if args.mask_sizes and (args.experts not in args.mask_sizes or min(args.mask_sizes)<args.active or len(set(args.mask_sizes))!=len(args.mask_sizes)):
         p.error('Unique mask sizes must include --experts and be at least --active')
     if args.output.exists() or min(args.steps,args.eval_interval,args.experts,args.active,args.max_length,args.new_tokens,args.lr,args.ram_gib)<=0 or not 0<=args.alpha<=1:
         p.error('Choose a fresh output and valid positive settings')
+    if not 0<=args.expert_ram_gib<=args.ram_gib:
+        p.error('Expert RAM cache must be between zero and the process RAM budget')
     if args.action=='prepare' and args.teacher_dir.exists() and not args.resume_teacher:
         p.error('Choose a fresh teacher directory')
     if args.action=='evaluate' and args.checkpoint is None:
@@ -258,12 +285,16 @@ def main():
     if args.action == 'calibrate':
         hw = hardware(args.model_dir,args.ram_gib)
         if not hw['gpu'] or args.calibration_per_category < 1: p.error('CUDA and positive calibration count required')
-        model,tokenizer,store=load_disk_backed(args.model_dir,256*1024**2,int(args.ram_gib*2**30))
+        model,tokenizer,store=load_disk_backed(args.model_dir,int(args.expert_ram_gib*2**30),int(args.ram_gib*2**30))
         sizes=args.mask_sizes or [args.experts]
         choose_capacity(model,max(sizes),hw['gpu']['free_bytes'],2*2**30)
         cache=OlmoeExpertCache(model,capacity=max(sizes)*model.config.num_hidden_layers,store=store)
         collector=CategoryCalibration(model.config.num_hidden_layers,model.config.num_experts)
-        cache.callbacks.append(collector.observe)
+        valid_tokens=None
+        def observe_valid(layer,indices,weights):
+            mask=valid_tokens.to(indices.device)
+            collector.observe(layer,indices[mask],weights[mask])
+        cache.callbacks.append(observe_valid)
         train=[r for r in supervised_rows(corpus,tokenizer,args.max_length) if r['split']=='train']
         categories=sorted({r['category'] for r in train})
         args.output.mkdir(parents=True)
@@ -274,10 +305,13 @@ def main():
                 rows=[r for r in train if r['category']==category][:args.calibration_per_category]
                 if len(rows)!=args.calibration_per_category: raise ValueError('Not enough calibration train examples')
                 collector.labels=[category]
-                for row in rows:
-                    print('Calibration '+row['id'],flush=True)
-                    with torch.inference_mode(): model(torch.tensor([row['tokens']],device='cuda'),use_cache=False)
-                    report['train_ids'].append(row['id'])
+                for start in range(0,len(rows),args.reference_batch_size):
+                    batch=rows[start:start+args.reference_batch_size]
+                    print('Calibration '+', '.join(row['id'] for row in batch),flush=True)
+                    tokens,attention=padded_batch(batch,tokenizer.eos_token_id,'cuda')
+                    valid_tokens=attention.flatten().bool()
+                    with torch.inference_mode(): model(tokens,attention_mask=attention,use_cache=False)
+                    report['train_ids'].extend(row['id'] for row in batch)
                     (args.output/'report.json').write_text(json.dumps(report,indent=2))
                     check_rss(int(args.ram_gib*2**30))
             report.update(completed=True,mappings={str(k):collector.mapping(categories,k) for k in sizes})
@@ -287,6 +321,10 @@ def main():
     study = json.loads(args.study.read_text())
     if not study.get('completed') or study['source_identity'] != source:
         p.error('Study must be completed on this checkpoint')
+    if study.get('corpus_identity') and study['corpus_identity']!=digest(corpus):
+        p.error('Calibration corpus differs; recalibrate using only this corpus train split')
+    if study.get('train_ids') and not set(study['train_ids']) <= {r['id'] for r in corpus['examples'] if r['split']=='train'}:
+        p.error('Calibration includes examples outside train')
     mapping = study['mappings'][str(args.experts)]
     mappings = {str(k): study['mappings'][str(k)] for k in (args.mask_sizes or [args.experts])}
     if any(r['category'] not in mapping for r in corpus['examples']):
@@ -296,11 +334,12 @@ def main():
     identity = {'source': source, 'mapping': digest(mapping), 'corpus': digest(corpus),
                 'experts': args.experts, 'active': args.active, 'policy': 'restricted'}
     if args.supervised: identity['objective'] = 'assistant_ce_with_eos'
+    elif args.teacher_eos: identity['objective'] = 'assistant_ce_native_kl_eos_v3'
     if args.mask_sizes: identity['mask_bank'] = digest(mappings)
     hw = hardware(args.model_dir,args.ram_gib)
     if not hw['gpu']:
         p.error('CUDA required')
-    model, tokenizer, store = load_disk_backed(args.model_dir, 256*1024**2, int(args.ram_gib*2**30))
+    model, tokenizer, store = load_disk_backed(args.model_dir, int(args.expert_ram_gib*2**30), int(args.ram_gib*2**30))
     capacity = max(map(int, mappings))
     choose_capacity(model,capacity,hw['gpu']['free_bytes'],2*2**30)
     cache = OlmoeExpertCache(model,capacity=capacity*model.config.num_hidden_layers,store=store)
@@ -315,13 +354,35 @@ def main():
         pending.replace(args.output/'report.json')
     save()
     try:
-        if args.action=='prepare':
+        if args.action=='native':
+            rows=supervised_rows(corpus,tokenizer,args.max_length)
+            test=[r for r in rows if r['split']=='test']
+            report.update(records=[],generations=[])
+            counts={}
+            for row in test:
+                with torch.no_grad():
+                    _,ce,_=objective(model,row,device,1.)
+                report['records'].append({'id':row['id'],'category':row['category'],'ce':ce.item()})
+                category=row['category']
+                if counts.get(category,0)<args.generation_per_category:
+                    before=cache.snapshot()
+                    with torch.autocast('cuda',dtype=torch.bfloat16):
+                        generated=decode(model,torch.tensor([row['tokens'][:row['prompt_length']]]),args.new_tokens,'cuda',
+                                         stop_token_ids=[tokenizer.eos_token_id])
+                    text=tokenizer.decode(generated['token_ids'],skip_special_tokens=True)
+                    report['generations'].append({'id':row['id'],'stage':'native','mask':'native',**generated,
+                        'text':text,**generation_metrics(generated['token_ids'],text,row),
+                        'cache_before':before,'cache_after':cache.snapshot()})
+                    counts[category]=counts.get(category,0)+1
+                save()
+            report['mean_ce']=statistics.mean(r['ce'] for r in report['records'])
+        elif args.action=='prepare':
             args.teacher_dir.mkdir(parents=True,exist_ok=args.resume_teacher)
             entries=[]
             manifest_path=args.teacher_dir/'manifest.json'
             if args.resume_teacher and manifest_path.exists():
                 previous=json.loads(manifest_path.read_text())
-                if previous['identity']!=identity: raise ValueError('Teacher resume identity differs')
+                if previous['identity']!=teacher_identity(identity,args.teacher_eos): raise ValueError('Teacher resume identity differs')
                 entries=previous['entries']
                 if len({e['id'] for e in entries})!=len(entries) or not {e['id'] for e in entries}<={r['id'] for r in corpus['examples']}:
                     raise ValueError('Invalid teacher resume entries')
@@ -333,25 +394,44 @@ def main():
                 raise ValueError('Resuming requires a verified manifest')
             def save_manifest(completed=False):
                 pending=manifest_path.with_suffix('.tmp')
-                pending.write_text(json.dumps({'identity':identity,'entries':entries,'completed':completed},indent=2))
+                pending.write_text(json.dumps({'identity':teacher_identity(identity,args.teacher_eos),'entries':entries,'completed':completed},indent=2))
                 pending.replace(manifest_path)
             save_manifest()
+            prepared_now=0
+            started=time.perf_counter()
+            done={e['id'] for e in entries}
+            pending_rows=[]
             for row in corpus['examples']:
-                if any(e['id']==row['id'] for e in entries): continue
-                print('Teacher '+row['id'],flush=True)
-                prompt = input_ids(tokenizer,row['prompt'])[0].tolist()
+                if row['id'] in done: continue
+                prompt = input_ids(tokenizer,row['prompt'],limit=args.max_length)[0].tolist()
                 answer = tokenizer.encode(row['answer'],add_special_tokens=False)
+                if args.teacher_eos: answer += [tokenizer.eos_token_id]
                 if not answer or len(prompt)+len(answer)>args.max_length:
                     raise ValueError('Example exceeds length budget: '+row['id'])
-                tokens=prompt+answer
+                pending_rows.append({**row,'tokens':prompt+answer,'prompt_length':len(prompt)})
+                if args.prepare_limit and len(pending_rows)>=args.prepare_limit: break
+            for start in range(0,len(pending_rows),args.reference_batch_size):
+                batch=pending_rows[start:start+args.reference_batch_size]
+                print('Teacher '+', '.join(row['id'] for row in batch),flush=True)
+                tokens,attention=padded_batch(batch,tokenizer.eos_token_id,device)
                 with torch.inference_mode():
-                    logits=model(torch.tensor([tokens],device=device),use_cache=False).logits[0,len(prompt)-1:-1].float()
-                    logp=logits.log_softmax(-1).cpu()
-                filename=row['id']+'.pt'
-                torch.save({**row,'tokens':tokens,'prompt_length':len(prompt),'teacher_logp':logp},args.teacher_dir/filename)
-                entries.append({'id':row['id'],'split':row['split'],'file':filename,'sha256':sha256(args.teacher_dir/filename)})
-                save_manifest()
+                    logits=model(tokens,attention_mask=attention,use_cache=False).logits
+                for i,row in enumerate(batch):
+                    logp=logits[i,row['prompt_length']-1:len(row['tokens'])-1].float().log_softmax(-1).cpu()
+                    filename=row['id']+'.pt'
+                    torch.save({**row,'teacher_logp':logp},args.teacher_dir/filename)
+                    entries.append({'id':row['id'],'split':row['split'],'file':filename,'sha256':sha256(args.teacher_dir/filename)})
+                    save_manifest()
+                    prepared_now+=1
+                del logits,logp
                 check_rss(int(args.ram_gib*2**30))
+            report['preparation_seconds']=time.perf_counter()-started
+            report['new_teacher_examples']=prepared_now
+            if len(entries)<len(corpus['examples']):
+                report.update(teacher_examples=len(entries),completed=False,
+                    continuation='Use --resume-teacher with the same teacher-dir and a fresh output directory')
+                save()
+                return
             save_manifest(completed=True)
             report['teacher_examples']=len(entries)
         else:
@@ -359,7 +439,7 @@ def main():
                 rows=supervised_rows(corpus,tokenizer,args.max_length)
             else:
                 manifest=json.loads((args.teacher_dir/'manifest.json').read_text())
-                if manifest['identity']!=identity:
+                if not manifest.get('completed') or manifest['identity']!=teacher_identity(identity,args.teacher_eos):
                     raise ValueError('Teacher identity differs from source, corpus or mapping')
                 rows=[]
                 expected={r['id']:r for r in corpus['examples']}
@@ -374,7 +454,8 @@ def main():
                         raise ValueError('Teacher text, category or split changed')
                     if row['teacher_logp'].shape != (len(row['tokens'])-row['prompt_length'],model.config.vocab_size):
                         raise ValueError('Teacher distribution shape differs')
-                    rows.append(row)
+                    del row['teacher_logp']
+                    rows.append(TeacherRow(row,path))
             parameters=enable_routers(model)
             if args.adaptation == 'expert-lora':
                 for parameter in parameters: parameter.requires_grad_(False)
@@ -396,12 +477,11 @@ def main():
                 best_state=initial; best_step=0
                 report.update(dev_before=baseline,steps=[],dev_checks=[],train_ids=[r['id'] for r in train])
                 optimizer=torch.optim.AdamW(parameters,lr=args.lr,weight_decay=0)
-                order=[(i,name) for name in mappings for i in range(len(train))]; rng=random.Random(args.seed)
+                order=training_order(len(train),mappings,args.steps,args.seed,args.curriculum_32_steps)
                 torch.cuda.reset_peak_memory_stats()
                 training_started=time.perf_counter()
                 for step in range(args.steps):
-                    if step%len(order)==0: rng.shuffle(order)
-                    row_index,mask_name=order[step%len(order)]
+                    row_index,mask_name=order[step]
                     row=train[row_index]
                     cache.set_context(mappings[mask_name][row['category']],mixture='restricted',active=args.active)
                     before=cache.stats['loads']
@@ -428,7 +508,7 @@ def main():
                     save()
                 checkpoint={'schema':2,'identity':identity,**best_state,'selected_step':best_step,
                             'selection':('minimum worst relative dev loss across category/mask groups' if robust_selection else 'minimum mean dev loss')+', including step zero','alpha':args.alpha,
-                            'recovery_settings':{k:getattr(args,k) for k in ('supervised','adaptation','rank','mask_sizes')}}
+                            'recovery_settings':{k:getattr(args,k) for k in ('supervised','adaptation','rank','mask_sizes','teacher_eos')}}
                 prefix='router' if adapter is None else 'adaptation'
                 torch.save(checkpoint,args.output/(prefix+'_best.pt'))
                 torch.save({**checkpoint,**adaptation_state(model,adapter),'selected_step':args.steps,
@@ -465,7 +545,7 @@ def main():
                         before=cache.snapshot()
                         with torch.autocast('cuda',dtype=torch.bfloat16):
                             generation=decode(model,torch.tensor([row['tokens'][:row['prompt_length']]]),args.new_tokens,'cuda',
-                                              stop_token_ids=[tokenizer.eos_token_id] if args.supervised else None)
+                                              stop_token_ids=[tokenizer.eos_token_id] if args.supervised or args.teacher_eos else None)
                         after=cache.snapshot()
                         if after['loads']!=before['loads']: raise RuntimeError('Expert loads during generation')
                         report['generations'].append({'stage':name,'id':row['id'],'mask':mask_name,**generation,'text':tokenizer.decode(generation['token_ids']),
@@ -475,7 +555,7 @@ def main():
             report['test_after']=evaluate_masks(model,cache,test,mappings,args.active,device,args.alpha)
             report['transition_checks']=transition_check(model,cache,test,mappings,args.active,device,args.alpha)
         report.update(completed=True,rss_bytes=check_rss(int(args.ram_gib*2**30)),cache_final=cache.snapshot(),
-            limitations=['Synthetic pilot, no claim of general quality recovery.','Base weights frozen; optional persistent down-projection expert LoRA.',
+            limitations=['No claim of general quality recovery; inspect corpus provenance and per-task correctness.','Base weights frozen; optional persistent down-projection expert LoRA.',
                          'Adaptation is bound to the calibrated mask bank; arbitrary unseen selections are not validated.',
                          'No KL or native reference is measured in supervised-only mode.',
                          'Dev selects checkpoint including step zero; test is reserved for final before/after comparison.'])

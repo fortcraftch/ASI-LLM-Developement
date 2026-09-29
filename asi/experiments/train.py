@@ -22,7 +22,6 @@ from typing import Dict, List
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 
 from asi.models.domain import GPT, GPTConfig
 from asi.data.identity import manifest_matches
@@ -393,8 +392,6 @@ def main():
         dataset_manifest=args.data_root/'manifest.json'
         if not manifest_matches(dataset_manifest, recipe['source_manifest_sha256']):
             p.error('data-root must contain the exact full dataset manifest used to design this recipe')
-    if min(args.batch_size,args.seq_len,args.total_batch_size,args.max_steps,args.val_interval,args.save_interval,args.val_steps_per_pool)<1:
-        p.error('Training sizes and intervals must be positive')
     grad_accum = args.total_batch_size // (args.batch_size * args.seq_len)
     print(f"device={args.device} | pools={len(manifest.names)} | experts/pool={recipe_config.experts_per_pool if recipe else args.experts_per_pool}")
     print(f"grad_accumulation_steps={grad_accum}")
@@ -549,9 +546,6 @@ def main():
             from asi.experiments.train_restart import publish_checkpoint
             publish_checkpoint(path, args.keep_checkpoints, os.environ.get('ASI_TRAIN_CHECKPOINT_STATUS'))
             print(f"saved {path}")
-
-        if torch.device(args.device).type == "cuda":
-            torch.cuda.synchronize()
 
         dt = time.time() - t0
         tokens_sec = args.batch_size * args.seq_len * grad_accum / max(dt, 1e-9)

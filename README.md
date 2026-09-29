@@ -13,6 +13,7 @@ modelos ya entrenados. Las recetas y los checkpoints de ambas líneas son distin
 | Necesidad | Documento de referencia |
 |---|---|
 | Entender el proyecto y los términos | [Recapitulación](docs/RECAPITULACION.md) |
+| Incorporar el estado actual al documento académico | [Actualización del TFG, 29/09/2026](docs/TFG_estado_actual_2026-09-29.md) |
 | Saber qué está hecho, qué falta y qué archivo corresponde a cada paso | [Registro del TFG](docs/plan.json), consultable con `python -m asi plan` |
 | Diseñar e interpretar experimentos | [Protocolo](docs/PLAN.md) |
 | Ejecutar comandos y migrar scripts antiguos | [Uso](docs/USAGE.md) |
@@ -24,6 +25,7 @@ modelos ya entrenados. Las recetas y los checkpoints de ambas líneas son distin
 | Probar OLMoE público frente a AirLLM | [Piloto público](docs/PUBLIC_MOE.md) |
 | Investigar la pérdida de coherencia al fijar expertos | [Estudio de routing](docs/ROUTING_STUDY.md) |
 | Recuperar lenguaje con routers y LoRA de expertos, bajo varias selecciones | [Fine-tuning de recuperación](docs/RECOVERY.md) |
+| Comparar los tres ajustes con datos públicos, profesor y varias semillas | [Estudio de recuperación ampliado](docs/RECOVERY_V3.md) |
 | Consultar resultados ya obtenidos | [Hallazgos](docs/FINDINGS.md) |
 | Entender las diferencias con AirLLM | [Trabajo relacionado](docs/AIRLLM.md) |
 

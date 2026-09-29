@@ -1,5 +1,9 @@
 # Fine-tuning de recuperación con expertos fijos
 
+El protocolo ampliado con datos públicos, profesor compartido y tres ajustes está
+en [RECOVERY_V3.md](RECOVERY_V3.md). Los resultados de abajo corresponden al piloto
+v2; no son resultados del estudio ampliado.
+
 ## Protocolo actual v2: ajustar pesos bajo varias selecciones
 
 La CLI permite `--adaptation router`, `expert-lora` o `router-expert-lora`.

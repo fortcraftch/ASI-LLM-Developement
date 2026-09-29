@@ -5,6 +5,7 @@ import sys
 
 
 COMMANDS = {
+    'recovery-study': ('asi.experiments.recovery_study', 'main', 'Preparar comparación multisemilla y revisión ciega de recuperación'),
     'recovery': ('asi.experiments.recovery', 'main', 'Calibrar selecciones y ajustar routers o expertos LoRA con memoria limitada'),
     'public-moe': ('asi.experiments.public_moe', 'main', 'Preparar y comparar el MoE público OLMoE con AirLLM'),
     'routing-study': ('asi.experiments.routing_study', 'main', 'Separar residencia, activación y pesos de mezcla en OLMoE'),
@@ -19,6 +20,7 @@ COMMANDS = {
     'graphs': ('asi.analysis.plots', 'main', 'Explicar y graficar pruebas ya ejecutadas, sin cargar modelos'),
     'comparison': ('asi.experiments.comparison', 'main', 'Preparar y ejecutar por separado la comparación de tres modelos'),
     'data': {
+        'recovery-corpus': ('asi.data.recovery_corpus', 'main', 'Preparar corpus público de recuperación con temas reservados'),
         'classifier-examples': ('asi.data.classifier_examples', 'main', 'Crear un corpus semilla sintético con splits separados'),
         'prepare': ('asi.data.prepare', 'main', 'Clasificar documentos y crear shards'),
         'pools': ('asi.data.pools', 'main', 'Construir el manifiesto de pools'),

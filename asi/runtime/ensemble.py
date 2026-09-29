@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 import time
 
-import torch
 from asi.runtime.generation import load_model, generate, validate_pool_identity
 from asi.runtime.routing import DomainSessionRouter
 

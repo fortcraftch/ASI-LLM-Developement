@@ -3,7 +3,6 @@ import argparse
 from collections import defaultdict
 import csv
 import json
-import math
 from pathlib import Path
 import random
 import time

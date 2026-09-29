@@ -1,6 +1,5 @@
 """Pinned public OLMoE pilot: download, calibrate, classify and compare AirLLM."""
 import argparse
-from collections import Counter
 import importlib.metadata
 import hashlib
 import json

@@ -1,0 +1,27 @@
+{
+  "input": "Deduce la expresión del gradiente de f(x)=3*x*x+2*x+1 y después escribe una función Python que calcule ese gradiente.",
+  "relation": "dependent",
+  "tasks": [
+    {
+      "id": "derive",
+      "prompt": "Deduce la derivada de f(x)=3*x*x+2*x+1 y explica el resultado.",
+      "categories": [
+        "mathematics_statistics"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "code",
+      "prompt": "Usa exactamente el resultado anterior para escribir una función Python y muestra un ejemplo numérico.",
+      "categories": [
+        "computer_science_software_engineering"
+      ],
+      "depends_on": [
+        "derive"
+      ]
+    }
+  ],
+  "schema": 1,
+  "origin": "original_synthetic_case",
+  "human_reviewed": false
+}

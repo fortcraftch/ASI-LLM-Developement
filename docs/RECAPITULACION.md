@@ -5,6 +5,11 @@ intentamos mantener en la GPU solo los expertos que necesita una conversación y
 dejar el resto en la RAM del ordenador. La dificultad es hacerlo sin estar
 moviendo expertos continuamente y sin perder demasiada calidad.
 
+Esta explicación describe principalmente los pilotos iniciales con el checkpoint
+local. Las recetas de [124M](TRAINING_124M.md) y el modelo público
+[OLMoE](PUBLIC_MOE.md) tienen arquitecturas distintas. El estado actual por paso
+está en [plan.json](plan.json).
+
 Las [gráficas de las pruebas realizadas](../results/project_overview_v1/index.html)
 se generan leyendo informes guardados: no vuelven a ejecutar el modelo.
 
@@ -15,7 +20,7 @@ chatbot independiente ni una persona que sabe exclusivamente de una profesión.
 El nombre «experto en programación» es una etiqueta que asignamos o una
 especialización que intentamos conseguir; hay que medir si realmente se cumple.
 
-Nuestro modelo de prueba tiene 12 capas: una sin este sistema y once con ocho
+El checkpoint local del piloto inicial tiene 12 capas: una sin este sistema y once con ocho
 expertos enrutados cada una. En cada una de esas once capas elige dos expertos
 para procesar cada fragmento de texto. Eso son **88 instancias de expertos** en
 total: el experto 2 de una capa no es el experto 2 de otra.
@@ -42,7 +47,7 @@ cuando hace falta. Tenerlos en RAM no es, por sí mismo, más rápido que en VRA
 | `oracle` | Una prueba en la que damos al sistema la etiqueta conocida del texto. Si sabemos que el texto pertenece al conjunto de matemáticas, le decimos «matemáticas». No conoce la respuesta ni elige expertos perfectos. |
 | `predicted` | El sistema tiene que adivinar el tema mediante un clasificador. |
 | `global` | Usamos siempre los expertos más frecuentes, sin distinguir temas. Es un control para comprobar si las etiquetas aportan algo. |
-| `resident` o `native` | En estos informes, la referencia con todos los expertos disponibles en GPU y elección original. |
+| `resident` o `native` | En los informes iniciales, referencia residente con elección original. En el piloto público OLMoE, `native` conserva esa elección pero usa una caché limitada y puede transferir pesos. Consultar siempre el protocolo del informe. |
 | `fixed` | La pareja de expertos queda fijada durante la pregunta y su respuesta. |
 | `restrict` | El modelo aún decide, pero solo puede escoger entre los candidatos permitidos. |
 | `prefetch` | Copiar expertos a GPU antes de que se pidan, intentando anticiparse. |
@@ -103,8 +108,10 @@ con etiqueta oracle y dos expertos fixed».
     tres alternativas con condiciones explícitas. **No la hemos ejecutado**:
     esperamos a que estén entrenados los tres modelos.
 
-También existe una exportación INT8, pero exportar pesos comprimidos no demuestra
-que la inferencia ya los ejecute comprimidos en GPU. Ese desarrollo sigue pendiente.
+También existe una exportación INT8. El [runtime adaptativo](ADAPTIVE.md) añade
+una caché INT8 residente en GPU que promociona expertos a pesos flotantes al
+cambiar el contexto. Está probado con modelos pequeños; no son kernels de
+cómputo INT8 ni evidencia de mejora con modelos entrenados.
 
 ## Qué nos dicen los números actuales
 

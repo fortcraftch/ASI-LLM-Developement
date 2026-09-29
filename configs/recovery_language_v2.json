@@ -1,0 +1,432 @@
+{
+  "schema": 2,
+  "description": "60 original synthetic educational QA: 36 train, 12 dev, 12 test. English. Pilot, not an external benchmark. Assistant answers include EOS at tokenization. Exact-number checks are narrow format-constrained tasks.",
+  "examples": [
+    {
+      "id": "code_train_01",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "What does a variable represent in a program?",
+      "answer": "A variable is a name associated with a value. A program can use that name to read or update the value."
+    },
+    {
+      "id": "code_train_02",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "Explain a conditional statement in simple language.",
+      "answer": "A conditional statement chooses which code to run according to whether a condition is true or false."
+    },
+    {
+      "id": "code_train_03",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "What is a dictionary in Python?",
+      "answer": "A dictionary maps keys to values. For example, a phone book can use names as keys and phone numbers as values."
+    },
+    {
+      "id": "code_train_04",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "Why should a program validate user input?",
+      "answer": "Input validation checks that data has an acceptable format and value before the program uses it. This helps avoid errors and invalid operations."
+    },
+    {
+      "id": "code_train_05",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "What does indentation do in Python?",
+      "answer": "Indentation groups statements into blocks, such as the body of a function or an if statement. Consistent indentation is part of Python syntax."
+    },
+    {
+      "id": "code_train_06",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "Explain the purpose of a unit test.",
+      "answer": "A unit test checks a small part of a program against an expected result. It helps detect mistakes and regressions when the code changes."
+    },
+    {
+      "id": "code_train_07",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "What is the difference between a parameter and an argument?",
+      "answer": "A parameter is a name in a function definition. An argument is a value supplied when the function is called."
+    },
+    {
+      "id": "code_train_08",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "What does a Python for loop do?",
+      "answer": "A for loop visits the items of an iterable and runs its body for each item. For example, it can print each name in a list."
+    },
+    {
+      "id": "code_train_09",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "Why use a descriptive function name?",
+      "answer": "A descriptive name makes the purpose of a function easier to understand. It helps people read and maintain the program."
+    },
+    {
+      "id": "code_train_10",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "What is a comment in source code?",
+      "answer": "A comment is explanatory text that is not executed as an instruction. It can describe why the code makes a particular choice."
+    },
+    {
+      "id": "code_train_11",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "Explain the difference between reading and writing a file.",
+      "answer": "Reading obtains existing data from a file. Writing stores data in a file and may replace existing content depending on the mode."
+    },
+    {
+      "id": "code_train_12",
+      "split": "train",
+      "category": "computer_science_software_engineering",
+      "prompt": "What is an exception in Python?",
+      "answer": "An exception signals a problem or unusual condition during execution. A try and except block can handle selected exceptions."
+    },
+    {
+      "id": "code_dev_01",
+      "split": "dev",
+      "category": "computer_science_software_engineering",
+      "prompt": "What is the output of Python len(\"cat\")? Answer with only the number.",
+      "answer": "3",
+      "expected_exact": "3"
+    },
+    {
+      "id": "code_dev_02",
+      "split": "dev",
+      "category": "computer_science_software_engineering",
+      "prompt": "Explain why code reuse can be useful.",
+      "answer": "Reusing tested code avoids duplicating the same logic. A shared function also makes it easier to apply a fix consistently."
+    },
+    {
+      "id": "code_dev_03",
+      "split": "dev",
+      "category": "computer_science_software_engineering",
+      "prompt": "What does Python break do inside a loop?",
+      "answer": "The break statement exits the nearest enclosing loop. Execution continues with the statement after that loop."
+    },
+    {
+      "id": "code_dev_04",
+      "split": "dev",
+      "category": "computer_science_software_engineering",
+      "prompt": "What is a Boolean value?",
+      "answer": "A Boolean value is either True or False. Boolean values are commonly used to represent conditions."
+    },
+    {
+      "id": "code_test_01",
+      "split": "test",
+      "category": "computer_science_software_engineering",
+      "prompt": "What is the output of Python len([7, 8, 9, 10])? Answer with only the number.",
+      "answer": "4",
+      "expected_exact": "4"
+    },
+    {
+      "id": "code_test_02",
+      "split": "test",
+      "category": "computer_science_software_engineering",
+      "prompt": "Why can dividing by zero cause a program to fail?",
+      "answer": "Division by zero is not defined in ordinary arithmetic. In Python, attempting it raises a ZeroDivisionError unless the program handles the exception."
+    },
+    {
+      "id": "code_test_03",
+      "split": "test",
+      "category": "computer_science_software_engineering",
+      "prompt": "What does Python continue do inside a loop?",
+      "answer": "The continue statement skips the rest of the current iteration. The loop then proceeds to its next iteration if one remains."
+    },
+    {
+      "id": "code_test_04",
+      "split": "test",
+      "category": "computer_science_software_engineering",
+      "prompt": "Explain why making a backup before editing a file is useful.",
+      "answer": "A backup preserves the previous content. If an edit loses or damages information, the earlier version can be restored."
+    },
+    {
+      "id": "math_train_01",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "What is addition?",
+      "answer": "Addition combines quantities. For example, adding 2 apples and 3 apples gives 5 apples."
+    },
+    {
+      "id": "math_train_02",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "Explain a fraction using one half as an example.",
+      "answer": "A fraction represents a part of a whole or a ratio. One half means one of two equal parts."
+    },
+    {
+      "id": "math_train_03",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "What is a negative number?",
+      "answer": "A negative number is less than zero. On a number line, negative numbers lie to the left of zero."
+    },
+    {
+      "id": "math_train_04",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "What does a percentage mean?",
+      "answer": "A percentage expresses a quantity per hundred. For example, 25 percent means 25 out of 100, which is one quarter."
+    },
+    {
+      "id": "math_train_05",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "What is a prime number?",
+      "answer": "A prime number is an integer greater than 1 with exactly two positive divisors: 1 and itself. Examples include 2, 3 and 5."
+    },
+    {
+      "id": "math_train_06",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "Explain multiplication as repeated addition.",
+      "answer": "For whole numbers, multiplication can describe repeated addition. Three times four is four plus four plus four, which equals twelve."
+    },
+    {
+      "id": "math_train_07",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "What is an equation?",
+      "answer": "An equation states that two expressions have equal values. Solving an equation means finding values that make the equality true."
+    },
+    {
+      "id": "math_train_08",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "What is the square of a number?",
+      "answer": "The square of a number is the number multiplied by itself. For example, the square of 5 is 25."
+    },
+    {
+      "id": "math_train_09",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "Explain the area of a rectangle.",
+      "answer": "The area measures the surface inside the rectangle. It is the length multiplied by the width, expressed in square units."
+    },
+    {
+      "id": "math_train_10",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "What is an even integer?",
+      "answer": "An even integer is divisible by 2 without a remainder. Examples include 0, 2, 4 and negative 6."
+    },
+    {
+      "id": "math_train_11",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "What does the denominator of a fraction indicate?",
+      "answer": "The denominator is the number below the fraction bar. For a fraction of a whole, it indicates how many equal parts make up the whole."
+    },
+    {
+      "id": "math_train_12",
+      "split": "train",
+      "category": "mathematics_statistics",
+      "prompt": "Why must measurement units match when adding lengths?",
+      "answer": "The lengths must be expressed in the same unit for direct addition. Convert them first, such as converting metres to centimetres."
+    },
+    {
+      "id": "math_dev_01",
+      "split": "dev",
+      "category": "mathematics_statistics",
+      "prompt": "What is 7 plus 5? Answer with only the number.",
+      "answer": "12",
+      "expected_exact": "12"
+    },
+    {
+      "id": "math_dev_02",
+      "split": "dev",
+      "category": "mathematics_statistics",
+      "prompt": "What is the difference between area and perimeter?",
+      "answer": "Area measures the surface inside a shape, using square units. Perimeter measures the distance around its boundary, using length units."
+    },
+    {
+      "id": "math_dev_03",
+      "split": "dev",
+      "category": "mathematics_statistics",
+      "prompt": "Explain what the mode of a data set is.",
+      "answer": "The mode is a value that occurs most frequently. A data set may have more than one mode."
+    },
+    {
+      "id": "math_dev_04",
+      "split": "dev",
+      "category": "mathematics_statistics",
+      "prompt": "What is an odd integer?",
+      "answer": "An odd integer is an integer that is not divisible by 2. It can be written as 2 times an integer plus 1."
+    },
+    {
+      "id": "math_test_01",
+      "split": "test",
+      "category": "mathematics_statistics",
+      "prompt": "What is 9 times 6? Answer with only the number.",
+      "answer": "54",
+      "expected_exact": "54"
+    },
+    {
+      "id": "math_test_02",
+      "split": "test",
+      "category": "mathematics_statistics",
+      "prompt": "Explain why multiplying a length by a width gives square units.",
+      "answer": "The two measurements each contribute a unit of length. Multiplying them gives length units squared, which measure area."
+    },
+    {
+      "id": "math_test_03",
+      "split": "test",
+      "category": "mathematics_statistics",
+      "prompt": "What is the range of the data set 2, 5, 11? Explain briefly.",
+      "answer": "The range is 9. Subtract the smallest value, 2, from the largest value, 11."
+    },
+    {
+      "id": "math_test_04",
+      "split": "test",
+      "category": "mathematics_statistics",
+      "prompt": "How do you compare two fractions that have the same positive denominator?",
+      "answer": "Compare their numerators. With the same positive denominator, the fraction with the larger numerator has the larger value."
+    },
+    {
+      "id": "bio_train_01",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "What is a cell?",
+      "answer": "A cell is a basic unit of living organisms. It contains structures that carry out processes needed for life."
+    },
+    {
+      "id": "bio_train_02",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "What do plant roots do?",
+      "answer": "Roots anchor a plant and absorb water and mineral nutrients from the soil. Some roots also store nutrients."
+    },
+    {
+      "id": "bio_train_03",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "What is a protein?",
+      "answer": "A protein is a molecule made from amino acids. Proteins have many roles, including building structures and catalysing chemical reactions."
+    },
+    {
+      "id": "bio_train_04",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "Explain the role of an enzyme.",
+      "answer": "An enzyme is a biological catalyst. It speeds up a chemical reaction without being consumed by that reaction."
+    },
+    {
+      "id": "bio_train_05",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "What is an ecosystem?",
+      "answer": "An ecosystem includes organisms and their physical environment. Its components interact through processes such as energy flow and nutrient cycling."
+    },
+    {
+      "id": "bio_train_06",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "Why are decomposers important?",
+      "answer": "Decomposers break down dead organisms and organic waste. This returns nutrients to the environment for other organisms to use."
+    },
+    {
+      "id": "bio_train_07",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "What is a habitat?",
+      "answer": "A habitat is the environment where an organism lives. It provides conditions and resources such as food, water and shelter."
+    },
+    {
+      "id": "bio_train_08",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "What is the role of chlorophyll?",
+      "answer": "Chlorophyll is a pigment that absorbs light. In plants, it helps capture the energy used in photosynthesis."
+    },
+    {
+      "id": "bio_train_09",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "Explain what a food chain shows.",
+      "answer": "A food chain shows a sequence of feeding relationships. Energy passes from one organism to another when one consumes the other."
+    },
+    {
+      "id": "bio_train_10",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "What is reproduction?",
+      "answer": "Reproduction is the process by which organisms produce offspring. It can occur sexually or asexually."
+    },
+    {
+      "id": "bio_train_11",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "What is a gene?",
+      "answer": "A gene is a region of genetic material that contributes to a functional product, such as an RNA molecule or a protein."
+    },
+    {
+      "id": "bio_train_12",
+      "split": "train",
+      "category": "life_sciences_biology",
+      "prompt": "Why do animals need water?",
+      "answer": "Water supports chemical reactions, transport and temperature regulation. Cells require water to function normally."
+    },
+    {
+      "id": "bio_dev_01",
+      "split": "dev",
+      "category": "life_sciences_biology",
+      "prompt": "How many legs does a typical adult insect have? Answer with only the number.",
+      "answer": "6",
+      "expected_exact": "6"
+    },
+    {
+      "id": "bio_dev_02",
+      "split": "dev",
+      "category": "life_sciences_biology",
+      "prompt": "What does pollination mean?",
+      "answer": "Pollination is the transfer of pollen to a receptive part of a seed plant. It is a step that can enable fertilization."
+    },
+    {
+      "id": "bio_dev_03",
+      "split": "dev",
+      "category": "life_sciences_biology",
+      "prompt": "Explain the function of red blood cells in humans.",
+      "answer": "Red blood cells transport oxygen using haemoglobin. They also contribute to the transport of carbon dioxide."
+    },
+    {
+      "id": "bio_dev_04",
+      "split": "dev",
+      "category": "life_sciences_biology",
+      "prompt": "What is biodiversity?",
+      "answer": "Biodiversity is the variety of life. It includes variation within species, between species and among ecosystems."
+    },
+    {
+      "id": "bio_test_01",
+      "split": "test",
+      "category": "life_sciences_biology",
+      "prompt": "How many legs does a typical adult spider have? Answer with only the number.",
+      "answer": "8",
+      "expected_exact": "8"
+    },
+    {
+      "id": "bio_test_02",
+      "split": "test",
+      "category": "life_sciences_biology",
+      "prompt": "How do gills help a fish obtain oxygen?",
+      "answer": "Water flows over the gills, where dissolved oxygen passes into the blood. Carbon dioxide can pass from the blood into the water."
+    },
+    {
+      "id": "bio_test_03",
+      "split": "test",
+      "category": "life_sciences_biology",
+      "prompt": "What is the role of a producer in a food web?",
+      "answer": "A producer makes organic compounds from inorganic sources, often using sunlight. Producers supply food energy to other organisms in the food web."
+    },
+    {
+      "id": "bio_test_04",
+      "split": "test",
+      "category": "life_sciences_biology",
+      "prompt": "Explain the difference between a population and a community in ecology.",
+      "answer": "A population consists of members of one species in an area. A community includes the populations of different species living and interacting there."
+    }
+  ]
+}

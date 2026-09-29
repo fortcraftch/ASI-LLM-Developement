@@ -1,10 +1,13 @@
 torch
 numpy
 tiktoken
-transformers
+transformers==5.16.1
 datasets
 huggingface_hub
 tqdm
 matplotlib
 pandas
 requests
+accelerate==1.15.0
+safetensors
+psutil

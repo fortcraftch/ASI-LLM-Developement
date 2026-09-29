@@ -5,6 +5,8 @@ __pycache__/
 
 # Virtual environment
 .venv/
+.venv-public-moe/
+/public_models/
 venv/
 env/
 
@@ -21,7 +23,13 @@ hellaswag/
 edu_fineweb10B/
 plots/
 results/
-/data/
+/data/*
+!/data/classifier_seed_v1/
+/data/classifier_seed_v1/*
+!/data/classifier_seed_v1/train_val.jsonl
+!/data/classifier_seed_v1/heldout_test.jsonl
+!/data/classifier_seed_v1/report.json
+!/data/classifier_seed_v1/tasks/
 fineweb_edu_specialized_pipeline/specialized_fineweb
 
 # Training outputs

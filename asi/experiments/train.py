@@ -272,7 +272,7 @@ def evaluate_by_pool(model, val_data: PoolData, manifest: PoolManifest, device: 
     return overall, results
 
 
-def save_checkpoint(path, model, optimizer, step, train_data, scheduler, val_loss, pool_names):
+def save_checkpoint(path, model, optimizer, step, train_data, scheduler, val_loss, pool_names, val_data=None):
     payload = {
         "model": model.state_dict(),
         "config": asdict(model.config),
@@ -280,6 +280,7 @@ def save_checkpoint(path, model, optimizer, step, train_data, scheduler, val_los
         "step": step,
         "val_loss": val_loss,
         "train_state": train_data.state(),
+        "val_state": val_data.state() if val_data is not None else None,
         "pool_rng_state": scheduler.state(),
         "pool_names": pool_names,
         "experiment": ((getattr(model, 'training_recipe', None) or {}).get('family', 'domain') + "_training_v1"),
@@ -290,7 +291,16 @@ def save_checkpoint(path, model, optimizer, step, train_data, scheduler, val_los
         "torch_rng_state": torch.get_rng_state(),
         "cuda_rng_states": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
     }
-    torch.save(payload, path)
+    path = Path(path)
+    temporary = path.with_suffix('.pt.tmp')
+    try:
+        with temporary.open('wb') as handle:
+            torch.save(payload, handle)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def main():
@@ -306,6 +316,10 @@ def main():
     p.add_argument("--pool-manifest", type=Path, default=(DATA_ROOT / "expert_pools.json"))
     p.add_argument("--log-dir", type=Path, default=Path("log_domain"))
     p.add_argument("--resume", type=Path, default=None)
+    p.add_argument('--auto-restart', action='store_true', help='Restart a fresh process after CUDA errors')
+    p.add_argument('--max-restarts', type=int, default=5)
+    p.add_argument('--restart-delay', type=float, default=15)
+    p.add_argument('--keep-checkpoints', type=int, default=0, help='Keep newest N model_*.pt files in log-dir; 0 keeps all')
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--seed", type=int, default=1337)
 
@@ -332,6 +346,14 @@ def main():
     if recipe:
         p.set_defaults(**recipe['training'])
     args = p.parse_args()
+    explicit = {arg.split('=')[0] for arg in sys.argv[1:]}
+    if args.auto_restart:
+        if '--save-interval' not in explicit:
+            args.save_interval = 10
+        if '--keep-checkpoints' not in explicit:
+            args.keep_checkpoints = 3
+    if args.max_restarts < 0 or args.restart_delay < 0 or not math.isfinite(args.restart_delay) or args.keep_checkpoints < 0:
+        p.error('Restart limits, delay and checkpoint retention must be nonnegative')
     if recipe and any(arg.split('=')[0] in ('--n-layer','--n-head','--n-embd','--n-routed-experts','--experts-per-pool','--n-activated-experts') for arg in sys.argv[1:]):
         p.error('Set architecture dimensions in the recipe, not conflicting CLI overrides')
 
@@ -339,6 +361,11 @@ def main():
         p.error('Training sizes and intervals must be positive')
     if args.total_batch_size % (args.batch_size * args.seq_len) != 0:
         raise ValueError("total-batch-size must be divisible by batch-size * seq-len")
+
+    if args.auto_restart and not args.dry_run:
+        from asi.experiments.train_restart import supervise
+        supervise(args, sys.argv[1:])
+        return
 
     torch.manual_seed(args.seed)
     random.seed(args.seed)
@@ -447,6 +474,8 @@ def main():
     scheduler = PoolScheduler(manifest, args.pool_sampling, args.seed)
     if resume_ckpt is not None:
         train_data.load_state(resume_ckpt.get("train_state", {}))
+        if resume_ckpt.get('val_state') is not None:
+            val_data.load_state(resume_ckpt['val_state'])
         if resume_ckpt.get("pool_rng_state") is not None:
             scheduler.load_state(resume_ckpt["pool_rng_state"])
         if resume_ckpt.get('torch_rng_state') is not None:
@@ -508,12 +537,17 @@ def main():
             group["lr"] = lr
         optimizer.step()
 
-        if step % args.save_interval == 0 and step > 0 or last_step:
+        if torch.device(args.device).type == "cuda":
+            torch.cuda.synchronize()
+
+        if (step + 1) % args.save_interval == 0 or last_step:
             path = args.log_dir / f"model_{step:05d}.pt"
             save_checkpoint(
                 path, model, optimizer, step, train_data, scheduler,
-                val_loss, manifest.names
+                val_loss, manifest.names, val_data
             )
+            from asi.experiments.train_restart import publish_checkpoint
+            publish_checkpoint(path, args.keep_checkpoints, os.environ.get('ASI_TRAIN_CHECKPOINT_STATUS'))
             print(f"saved {path}")
 
         if torch.device(args.device).type == "cuda":

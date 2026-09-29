@@ -160,7 +160,63 @@ class Gallery:
 def draw_report(g, path):
     d = read(path); summary = d.get('summary', {})
     study = path.parent.name
-    if 'aggregate' in d and 'results' in d:
+    if d.get('completed') and d.get('kind')=='recovery_comparison':
+        rows=[]
+        for mask in sorted({r['mask'] for r in d['rows']},key=int):
+            rows.append(next(r for r in d['rows'] if r['mask']==mask and r['stage']=='before'))
+            rows.extend(r for r in d['rows'] if r['mask']==mask and r['stage']=='after')
+        labels={'router':'Routing','router-expert-lora':'Routing + LoRA','expert-lora':'LoRA'}
+        modes=[r['mask']+' residentes · '+('Sin ajuste' if r['stage']=='before' else labels[r['adaptation']]) for r in rows]
+        g.bars('Routing frente a ajuste de pesos · '+study,modes,[
+            ('Error sobre respuestas reservadas','CE media por ejemplo, incluido EOS',[r['ce'] for r in rows]),
+            ('Repetición en generaciones libres','% de trigramas repetidos',[100*r['repeated_trigram_fraction'] for r in rows])],
+            'Mismos datos, exposiciones y banco de selecciones; LoRA añade parámetros y cómputo. '
+            'Sin ajuste también tiene expertos restringidos: no es el modelo original completo. '
+            'Piloto sintético de una semilla. Menos repetición puede significar respuestas demasiado cortas; revisar textos y corrección.',path)
+    elif d.get('completed') and 'test_before' in d and d.get('settings',{}).get('supervised'):
+        modes,errors,repetition=[],[],[]
+        for mask in d['test_before']['masks']:
+            for stage,label in [('before','Antes'),('after','Después')]:
+                modes.append(f'{mask} residentes · {label}')
+                errors.append(statistics.mean(r['ce'] for r in d['test_'+stage]['masks'][mask]['records']))
+                generated=[r for r in d['generations'] if r['mask']==mask and r['stage']==stage]
+                repetition.append(100*statistics.mean(r['repeated_trigram_fraction'] for r in generated) if generated else None)
+        g.bars('Recuperación de lenguaje · '+study,modes,[
+            ('Error sobre respuestas reservadas, incluido EOS','CE media por ejemplo; menor es mejor',errors),
+            ('Repetición en generaciones libres','% de trigramas repetidos; no es una medida de corrección',repetition)],
+            'Entrenamiento supervisado de tokens del asistente. No se ha medido aquí el modelo original ni KL. '
+            'La generación termina en EOS o en el límite; longitud y precisión semántica también deben revisarse. '
+            f"Paso elegido en dev: {d['selected_step']}. Adaptación: {d['settings']['adaptation']}.",path)
+        if d.get('dev_checks'):
+            fig,ax=g.plt.subplots(figsize=(9,4.5))
+            points=[(0,1.)]+[(r['step'],r['worst_group_ratio']) for r in d['dev_checks']]
+            ax.plot(*zip(*points),marker='o')
+            ax.axhline(1.,color='#999999',linestyle=':',label='Referencia sin ajuste')
+            ax.axvline(d['selected_step'],color='#dc9146',linestyle='--',label='Paso elegido')
+            ax.set(xlabel='Paso',ylabel='Peor cociente CE / CE inicial entre grupos',title='Validación de todas las categorías y selecciones')
+            ax.grid(alpha=.2);ax.legend();fig.tight_layout()
+            g.save(fig,'Selección robusta · '+study,'Cada grupo es una pareja categoría / selección de residentes. '
+                   'Menor que uno indica mejora media en todos esos grupos de dev, no garantía para cualquier prompt.',path,points)
+    elif d.get('completed') and 'test_before' in d and 'test_after' in d and 'teacher_test_ce' in d:
+        groups=[d['test_before']['records'],d['test_after']['records']]
+        g.bars('Recuperación de routers · '+study, ['Original', 'Fijos antes', 'Fijos después'], [
+            ('Error sobre respuestas reservadas', 'CE media por ejemplo; menor es mejor',
+             [d['teacher_test_ce']]+[statistics.mean(r['ce'] for r in rows) for rows in groups]),
+            ('Diferencia respecto al modelo original', 'KL media por ejemplo; menor es mejor',
+             [0.]+[statistics.mean(r['kl'] for r in rows) for rows in groups])],
+            f"{len(groups[0])} ejemplos test. Checkpoint elegido en dev: paso {d['selected_step']}. "
+            'Mismas respuestas y restricción antes/después. Menor error no demuestra coherencia de generación ni calidad general. '
+            'La KL del original consigo mismo es cero por definición. Categorías conocidas; no se evalúa el clasificador.',path)
+        if d.get('dev_checks'):
+            fig,ax=g.plt.subplots(figsize=(9,4.5))
+            checks=[{'step':0,**d['dev_before']}]+d['dev_checks']
+            ax.plot([r['step'] for r in checks],[r['mean_loss'] for r in checks],marker='o')
+            ax.axvline(d['selected_step'],color='#dc9146',linestyle='--',label='Paso elegido en dev')
+            ax.set(xlabel='Paso',ylabel='Pérdida media CE/KL en dev',title='Selección del ajuste sin consultar test')
+            ax.grid(alpha=.2);ax.legend();fig.tight_layout()
+            g.save(fig,'Validación de recuperación · '+study,
+                   'El paso cero también puede ganar. No se usan las respuestas test para elegir el checkpoint.',path,checks)
+    elif 'aggregate' in d and 'results' in d:
         modes = list(d['aggregate'])
         rows = {m: [r for r in d['results'] if r['mode'] == m] for m in modes}
         g.bars('Auditoría de pools · '+study, modes, [

@@ -1,0 +1,37 @@
+{
+  "input": "Deduce una fórmula, impleméntala en Python y demuestra después una propiedad matemática del algoritmo implementado.",
+  "relation": "dependent",
+  "tasks": [
+    {
+      "id": "derive",
+      "prompt": "Deduce la fórmula de la suma de los primeros n enteros.",
+      "categories": [
+        "mathematics_statistics"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "code",
+      "prompt": "Implementa en Python el resultado anterior.",
+      "categories": [
+        "computer_science_software_engineering"
+      ],
+      "depends_on": [
+        "derive"
+      ]
+    },
+    {
+      "id": "prove",
+      "prompt": "Demuestra la corrección de la implementación concreta anterior.",
+      "categories": [
+        "mathematics_statistics"
+      ],
+      "depends_on": [
+        "code"
+      ]
+    }
+  ],
+  "schema": 1,
+  "origin": "original_synthetic_case",
+  "human_reviewed": false
+}

@@ -1,7 +1,13 @@
 # AirLLM frente a este proyecto
 
 Revisión de README y código de la rama `main`, consultados el 25/09/2026.
-No se ha instalado ni ejecutado AirLLM; no hay mediciones comparativas locales.
+Actualización 27/09/2026: AirLLM se ha instalado en un entorno aislado y probado
+en CUDA con un OLMoE diminuto aleatorio. No hay todavía una comparación completa
+del checkpoint público frente a AirLLM. El [piloto OLMoE](PUBLIC_MOE.md) documenta la revisión
+fijada, el puente de compatibilidad y el protocolo preparado.
+Actualización 28/09/2026: las dependencias se han unificado en `F:\.venv`.
+OLMoE dispone ahora de respaldo en disco y caché RAM limitada, sin exigir
+RAM para todos los pesos; consultar el piloto para las mediciones disponibles.
 Los enlaces apuntan a una rama que puede cambiar.
 
 Compartimos el objetivo de ejecutar modelos mayores que la VRAM disponible.

@@ -1,0 +1,5 @@
+# Optional extras installed in the SAME environment as requirements.txt.
+-r requirements.txt
+sentencepiece
+scipy
+airllm @ git+https://github.com/lyogavin/airllm.git@ae70eefdec83e868f9825613653e34d3c442045c#subdirectory=air_llm

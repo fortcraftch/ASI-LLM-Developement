@@ -1,0 +1,1491 @@
+{
+  "schema": 1,
+  "id": "asi-human-knowledge",
+  "version": "1.0.0",
+  "scope": "Taxonomía de trabajo extensible, no inventario exhaustivo de todo el conocimiento humano ni garantía de cobertura de ningún modelo.",
+  "policy": {
+    "multilabel": true,
+    "immutable_ids": true,
+    "root_is_routable": false,
+    "unknown_is_routable": false,
+    "model_availability_separate": true
+  },
+  "facets": {
+    "task": [
+      "explain",
+      "solve",
+      "create",
+      "translate",
+      "summarize",
+      "compare",
+      "plan",
+      "converse"
+    ],
+    "modality": [
+      "text",
+      "code",
+      "image",
+      "audio",
+      "video",
+      "structured_data"
+    ],
+    "note": "Facetas descriptivas independientes de temas; todavía no son salidas entrenadas ni autorizan capacidades del modelo."
+  },
+  "nodes": [
+    {
+      "id": "knowledge",
+      "parent": null,
+      "name": "Conocimiento y actividad humana",
+      "description": "Raíz organizativa, no una etiqueta que autorice cualquier experto."
+    },
+    {
+      "id": "arts_humanities",
+      "parent": "knowledge",
+      "name": "Artes y humanidades",
+      "description": "Creación artística, literatura, patrimonio e interpretación cultural.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "business_economics",
+      "parent": "knowledge",
+      "name": "Economía y organizaciones",
+      "description": "Economía, empresas, comercio, administración y gestión.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "computer_science_software_engineering",
+      "parent": "knowledge",
+      "name": "Informática y software",
+      "description": "Computación, programación, sistemas, redes y datos.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "education_pedagogy",
+      "parent": "knowledge",
+      "name": "Educación y aprendizaje",
+      "description": "Enseñanza, pedagogía, aprendizaje y evaluación educativa.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "engineering_technology",
+      "parent": "knowledge",
+      "name": "Ingeniería y tecnología",
+      "description": "Diseño, fabricación, infraestructuras y sistemas técnicos.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "environmental_science_energy",
+      "parent": "knowledge",
+      "name": "Medioambiente y energía",
+      "description": "Ecosistemas, clima, conservación y sistemas energéticos.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "history_geography",
+      "parent": "knowledge",
+      "name": "Historia y geografía",
+      "description": "Pasado humano, territorios, cartografía y relaciones espaciales.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "language_writing",
+      "parent": "knowledge",
+      "name": "Lenguas y comunicación escrita",
+      "description": "Lingüística, idiomas, traducción, escritura y retórica.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "law_government",
+      "parent": "knowledge",
+      "name": "Derecho y gobierno",
+      "description": "Sistemas jurídicos, instituciones, políticas públicas y administración.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "life_sciences_biology",
+      "parent": "knowledge",
+      "name": "Biología y ciencias de la vida",
+      "description": "Organismos, evolución, genética, ecología y procesos biológicos.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "machine_learning_ai",
+      "parent": "knowledge",
+      "name": "Inteligencia artificial",
+      "description": "Aprendizaje automático, modelos, evaluación y sistemas inteligentes.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "mathematics_statistics",
+      "parent": "knowledge",
+      "name": "Matemáticas y estadística",
+      "description": "Estructuras formales, cálculo, probabilidad y análisis estadístico.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "medicine_health",
+      "parent": "knowledge",
+      "name": "Medicina y salud",
+      "description": "Salud física y mental, prevención, diagnóstico y cuidados.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "personal_finance_practical_life",
+      "parent": "knowledge",
+      "name": "Finanzas personales y vida práctica",
+      "description": "Presupuestos, consumo y decisiones prácticas cotidianas.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "philosophy_ethics",
+      "parent": "knowledge",
+      "name": "Filosofía y ética",
+      "description": "Conocimiento, razonamiento, valores y tradiciones filosóficas.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "physical_sciences",
+      "parent": "knowledge",
+      "name": "Ciencias físicas",
+      "description": "Física, química, astronomía y ciencias de la Tierra.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "social_sciences",
+      "parent": "knowledge",
+      "name": "Ciencias sociales",
+      "description": "Sociedad, comportamiento, relaciones humanas e instituciones.",
+      "origin": "existing_dataset_domain"
+    },
+    {
+      "id": "computer_science_software_engineering__algorithms_data_structures",
+      "parent": "computer_science_software_engineering",
+      "name": "Algorithms data structures",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__cybersecurity",
+      "parent": "computer_science_software_engineering",
+      "name": "Cybersecurity",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__databases_data_engineering",
+      "parent": "computer_science_software_engineering",
+      "name": "Databases data engineering",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__devops_cloud",
+      "parent": "computer_science_software_engineering",
+      "name": "Devops cloud",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__general",
+      "parent": "computer_science_software_engineering",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__graphics_games",
+      "parent": "computer_science_software_engineering",
+      "name": "Graphics games",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__networking_distributed",
+      "parent": "computer_science_software_engineering",
+      "name": "Networking distributed",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__programming_c_cpp",
+      "parent": "computer_science_software_engineering",
+      "name": "Programming c cpp",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__programming_java_jvm",
+      "parent": "computer_science_software_engineering",
+      "name": "Programming java jvm",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__programming_javascript_typescript",
+      "parent": "computer_science_software_engineering",
+      "name": "Programming javascript typescript",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__programming_other",
+      "parent": "computer_science_software_engineering",
+      "name": "Programming other",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__programming_php_ruby",
+      "parent": "computer_science_software_engineering",
+      "name": "Programming php ruby",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__programming_python",
+      "parent": "computer_science_software_engineering",
+      "name": "Programming python",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__programming_rust_go",
+      "parent": "computer_science_software_engineering",
+      "name": "Programming rust go",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__software_engineering",
+      "parent": "computer_science_software_engineering",
+      "name": "Software engineering",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__systems_linux_os",
+      "parent": "computer_science_software_engineering",
+      "name": "Systems linux os",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "computer_science_software_engineering__web_development",
+      "parent": "computer_science_software_engineering",
+      "name": "Web development",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__aerospace",
+      "parent": "engineering_technology",
+      "name": "Aerospace",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__chemical",
+      "parent": "engineering_technology",
+      "name": "Chemical",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__civil",
+      "parent": "engineering_technology",
+      "name": "Civil",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__electrical_electronics",
+      "parent": "engineering_technology",
+      "name": "Electrical electronics",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__energy",
+      "parent": "engineering_technology",
+      "name": "Energy",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__general",
+      "parent": "engineering_technology",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__manufacturing",
+      "parent": "engineering_technology",
+      "name": "Manufacturing",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__materials",
+      "parent": "engineering_technology",
+      "name": "Materials",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__mechanical",
+      "parent": "engineering_technology",
+      "name": "Mechanical",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__robotics_control",
+      "parent": "engineering_technology",
+      "name": "Robotics control",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "engineering_technology__telecommunications",
+      "parent": "engineering_technology",
+      "name": "Telecommunications",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "machine_learning_ai__computer_vision",
+      "parent": "machine_learning_ai",
+      "name": "Computer vision",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "machine_learning_ai__data_science",
+      "parent": "machine_learning_ai",
+      "name": "Data science",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "machine_learning_ai__deep_learning",
+      "parent": "machine_learning_ai",
+      "name": "Deep learning",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "machine_learning_ai__general",
+      "parent": "machine_learning_ai",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "machine_learning_ai__large_language_models",
+      "parent": "machine_learning_ai",
+      "name": "Large language models",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "machine_learning_ai__machine_learning",
+      "parent": "machine_learning_ai",
+      "name": "Machine learning",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "machine_learning_ai__nlp",
+      "parent": "machine_learning_ai",
+      "name": "Nlp",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "machine_learning_ai__reinforcement_learning",
+      "parent": "machine_learning_ai",
+      "name": "Reinforcement learning",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "machine_learning_ai__robotics_ai",
+      "parent": "machine_learning_ai",
+      "name": "Robotics ai",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__algebra",
+      "parent": "mathematics_statistics",
+      "name": "Algebra",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__applied_mathematics",
+      "parent": "mathematics_statistics",
+      "name": "Applied mathematics",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__calculus",
+      "parent": "mathematics_statistics",
+      "name": "Calculus",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__discrete_math_logic",
+      "parent": "mathematics_statistics",
+      "name": "Discrete math logic",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__general",
+      "parent": "mathematics_statistics",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__geometry",
+      "parent": "mathematics_statistics",
+      "name": "Geometry",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__number_theory",
+      "parent": "mathematics_statistics",
+      "name": "Number theory",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__numerical_methods",
+      "parent": "mathematics_statistics",
+      "name": "Numerical methods",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__optimization",
+      "parent": "mathematics_statistics",
+      "name": "Optimization",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "mathematics_statistics__probability_statistics",
+      "parent": "mathematics_statistics",
+      "name": "Probability statistics",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "physical_sciences__astronomy_space",
+      "parent": "physical_sciences",
+      "name": "Astronomy space",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "physical_sciences__chemistry",
+      "parent": "physical_sciences",
+      "name": "Chemistry",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "physical_sciences__general",
+      "parent": "physical_sciences",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "physical_sciences__materials_physics",
+      "parent": "physical_sciences",
+      "name": "Materials physics",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "physical_sciences__physics",
+      "parent": "physical_sciences",
+      "name": "Physics",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "physical_sciences__quantum",
+      "parent": "physical_sciences",
+      "name": "Quantum",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "life_sciences_biology__biology",
+      "parent": "life_sciences_biology",
+      "name": "Biology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "life_sciences_biology__biotechnology",
+      "parent": "life_sciences_biology",
+      "name": "Biotechnology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "life_sciences_biology__ecology",
+      "parent": "life_sciences_biology",
+      "name": "Ecology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "life_sciences_biology__evolution",
+      "parent": "life_sciences_biology",
+      "name": "Evolution",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "life_sciences_biology__general",
+      "parent": "life_sciences_biology",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "life_sciences_biology__genetics",
+      "parent": "life_sciences_biology",
+      "name": "Genetics",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "life_sciences_biology__microbiology",
+      "parent": "life_sciences_biology",
+      "name": "Microbiology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "life_sciences_biology__molecular_biology",
+      "parent": "life_sciences_biology",
+      "name": "Molecular biology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "life_sciences_biology__neuroscience",
+      "parent": "life_sciences_biology",
+      "name": "Neuroscience",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "medicine_health__anatomy_physiology",
+      "parent": "medicine_health",
+      "name": "Anatomy physiology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "medicine_health__clinical",
+      "parent": "medicine_health",
+      "name": "Clinical",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "medicine_health__general",
+      "parent": "medicine_health",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "medicine_health__medicine",
+      "parent": "medicine_health",
+      "name": "Medicine",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "medicine_health__mental_health",
+      "parent": "medicine_health",
+      "name": "Mental health",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "medicine_health__nutrition",
+      "parent": "medicine_health",
+      "name": "Nutrition",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "medicine_health__pharmacology",
+      "parent": "medicine_health",
+      "name": "Pharmacology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "medicine_health__public_health_epidemiology",
+      "parent": "medicine_health",
+      "name": "Public health epidemiology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "environmental_science_energy__climate",
+      "parent": "environmental_science_energy",
+      "name": "Climate",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "environmental_science_energy__ecology_environment",
+      "parent": "environmental_science_energy",
+      "name": "Ecology environment",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "environmental_science_energy__energy",
+      "parent": "environmental_science_energy",
+      "name": "Energy",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "environmental_science_energy__environmental_science",
+      "parent": "environmental_science_energy",
+      "name": "Environmental science",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "environmental_science_energy__general",
+      "parent": "environmental_science_energy",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "environmental_science_energy__geoscience",
+      "parent": "environmental_science_energy",
+      "name": "Geoscience",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "environmental_science_energy__sustainability",
+      "parent": "environmental_science_energy",
+      "name": "Sustainability",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "business_economics__accounting",
+      "parent": "business_economics",
+      "name": "Accounting",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "business_economics__business_management",
+      "parent": "business_economics",
+      "name": "Business management",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "business_economics__ecommerce",
+      "parent": "business_economics",
+      "name": "Ecommerce",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "business_economics__economics",
+      "parent": "business_economics",
+      "name": "Economics",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "business_economics__entrepreneurship",
+      "parent": "business_economics",
+      "name": "Entrepreneurship",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "business_economics__finance",
+      "parent": "business_economics",
+      "name": "Finance",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "business_economics__general",
+      "parent": "business_economics",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "business_economics__marketing",
+      "parent": "business_economics",
+      "name": "Marketing",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "law_government__constitutional_law",
+      "parent": "law_government",
+      "name": "Constitutional law",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "law_government__general",
+      "parent": "law_government",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "law_government__government",
+      "parent": "law_government",
+      "name": "Government",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "law_government__international_law",
+      "parent": "law_government",
+      "name": "International law",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "law_government__law",
+      "parent": "law_government",
+      "name": "Law",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "law_government__regulation_policy",
+      "parent": "law_government",
+      "name": "Regulation policy",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "personal_finance_practical_life__automotive",
+      "parent": "personal_finance_practical_life",
+      "name": "Automotive",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "personal_finance_practical_life__consumer",
+      "parent": "personal_finance_practical_life",
+      "name": "Consumer",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "personal_finance_practical_life__cooking_food",
+      "parent": "personal_finance_practical_life",
+      "name": "Cooking food",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "personal_finance_practical_life__general",
+      "parent": "personal_finance_practical_life",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "personal_finance_practical_life__health_fitness",
+      "parent": "personal_finance_practical_life",
+      "name": "Health fitness",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "personal_finance_practical_life__home_garden",
+      "parent": "personal_finance_practical_life",
+      "name": "Home garden",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "personal_finance_practical_life__personal_finance",
+      "parent": "personal_finance_practical_life",
+      "name": "Personal finance",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "personal_finance_practical_life__sports_hobbies",
+      "parent": "personal_finance_practical_life",
+      "name": "Sports hobbies",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "personal_finance_practical_life__travel",
+      "parent": "personal_finance_practical_life",
+      "name": "Travel",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "social_sciences__anthropology",
+      "parent": "social_sciences",
+      "name": "Anthropology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "social_sciences__communication",
+      "parent": "social_sciences",
+      "name": "Communication",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "social_sciences__demography",
+      "parent": "social_sciences",
+      "name": "Demography",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "social_sciences__general",
+      "parent": "social_sciences",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "social_sciences__political_science",
+      "parent": "social_sciences",
+      "name": "Political science",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "social_sciences__psychology",
+      "parent": "social_sciences",
+      "name": "Psychology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "social_sciences__sociology",
+      "parent": "social_sciences",
+      "name": "Sociology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "arts_humanities__architecture",
+      "parent": "arts_humanities",
+      "name": "Architecture",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "arts_humanities__design",
+      "parent": "arts_humanities",
+      "name": "Design",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "arts_humanities__film",
+      "parent": "arts_humanities",
+      "name": "Film",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "arts_humanities__general",
+      "parent": "arts_humanities",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "arts_humanities__literature",
+      "parent": "arts_humanities",
+      "name": "Literature",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "arts_humanities__music",
+      "parent": "arts_humanities",
+      "name": "Music",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "arts_humanities__theatre",
+      "parent": "arts_humanities",
+      "name": "Theatre",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "arts_humanities__visual_arts",
+      "parent": "arts_humanities",
+      "name": "Visual arts",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "history_geography__archaeology",
+      "parent": "history_geography",
+      "name": "Archaeology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "history_geography__cultural_history",
+      "parent": "history_geography",
+      "name": "Cultural history",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "history_geography__general",
+      "parent": "history_geography",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "history_geography__geography",
+      "parent": "history_geography",
+      "name": "Geography",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "history_geography__history",
+      "parent": "history_geography",
+      "name": "History",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "philosophy_ethics__epistemology_logic",
+      "parent": "philosophy_ethics",
+      "name": "Epistemology logic",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "philosophy_ethics__ethics",
+      "parent": "philosophy_ethics",
+      "name": "Ethics",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "philosophy_ethics__general",
+      "parent": "philosophy_ethics",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "philosophy_ethics__philosophy",
+      "parent": "philosophy_ethics",
+      "name": "Philosophy",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "philosophy_ethics__religion_theology",
+      "parent": "philosophy_ethics",
+      "name": "Religion theology",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "education_pedagogy__academic_reference",
+      "parent": "education_pedagogy",
+      "name": "Academic reference",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "education_pedagogy__curriculum",
+      "parent": "education_pedagogy",
+      "name": "Curriculum",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "education_pedagogy__education",
+      "parent": "education_pedagogy",
+      "name": "Education",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "education_pedagogy__general",
+      "parent": "education_pedagogy",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "education_pedagogy__pedagogy",
+      "parent": "education_pedagogy",
+      "name": "Pedagogy",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "education_pedagogy__teaching",
+      "parent": "education_pedagogy",
+      "name": "Teaching",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "language_writing__english_language",
+      "parent": "language_writing",
+      "name": "English language",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "language_writing__general",
+      "parent": "language_writing",
+      "name": "General",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "language_writing__language_learning",
+      "parent": "language_writing",
+      "name": "Language learning",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "language_writing__linguistics",
+      "parent": "language_writing",
+      "name": "Linguistics",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "language_writing__translation",
+      "parent": "language_writing",
+      "name": "Translation",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "language_writing__writing_communication",
+      "parent": "language_writing",
+      "name": "Writing communication",
+      "description": "Etiqueta original del dataset; alcance pendiente de revisión editorial.",
+      "origin": "existing_dataset_category"
+    },
+    {
+      "id": "agriculture_food",
+      "parent": "knowledge",
+      "name": "Agricultura y alimentación",
+      "description": "Cultivo, ganadería y producción de alimentos.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "agriculture_food__crop_science",
+      "parent": "agriculture_food",
+      "name": "Crop science",
+      "description": "Cultivo, ganadería y producción de alimentos.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "agriculture_food__animal_husbandry",
+      "parent": "agriculture_food",
+      "name": "Animal husbandry",
+      "description": "Cultivo, ganadería y producción de alimentos.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "agriculture_food__food_systems",
+      "parent": "agriculture_food",
+      "name": "Food systems",
+      "description": "Cultivo, ganadería y producción de alimentos.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "culinary",
+      "parent": "knowledge",
+      "name": "Cocina y gastronomía",
+      "description": "Preparación de alimentos, técnicas y culturas culinarias.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "culinary__cooking_techniques",
+      "parent": "culinary",
+      "name": "Cooking techniques",
+      "description": "Preparación de alimentos, técnicas y culturas culinarias.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "culinary__recipes",
+      "parent": "culinary",
+      "name": "Recipes",
+      "description": "Preparación de alimentos, técnicas y culturas culinarias.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "culinary__food_cultures",
+      "parent": "culinary",
+      "name": "Food cultures",
+      "description": "Preparación de alimentos, técnicas y culturas culinarias.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "sports_recreation",
+      "parent": "knowledge",
+      "name": "Deporte y ocio",
+      "description": "Actividad deportiva, entrenamiento y entretenimiento participativo.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "sports_recreation__sports_rules",
+      "parent": "sports_recreation",
+      "name": "Sports rules",
+      "description": "Actividad deportiva, entrenamiento y entretenimiento participativo.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "sports_recreation__physical_training",
+      "parent": "sports_recreation",
+      "name": "Physical training",
+      "description": "Actividad deportiva, entrenamiento y entretenimiento participativo.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "sports_recreation__outdoor_recreation",
+      "parent": "sports_recreation",
+      "name": "Outdoor recreation",
+      "description": "Actividad deportiva, entrenamiento y entretenimiento participativo.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "games",
+      "parent": "knowledge",
+      "name": "Juegos",
+      "description": "Juegos de mesa, videojuegos y diseño lúdico.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "games__board_games",
+      "parent": "games",
+      "name": "Board games",
+      "description": "Juegos de mesa, videojuegos y diseño lúdico.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "games__video_games",
+      "parent": "games",
+      "name": "Video games",
+      "description": "Juegos de mesa, videojuegos y diseño lúdico.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "games__game_design",
+      "parent": "games",
+      "name": "Game design",
+      "description": "Juegos de mesa, videojuegos y diseño lúdico.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "religion_spirituality",
+      "parent": "knowledge",
+      "name": "Religión y espiritualidad",
+      "description": "Tradiciones religiosas, creencias, prácticas y estudio comparado.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "religion_spirituality__religious_studies",
+      "parent": "religion_spirituality",
+      "name": "Religious studies",
+      "description": "Tradiciones religiosas, creencias, prácticas y estudio comparado.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "religion_spirituality__traditions_practices",
+      "parent": "religion_spirituality",
+      "name": "Traditions practices",
+      "description": "Tradiciones religiosas, creencias, prácticas y estudio comparado.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "religion_spirituality__spirituality",
+      "parent": "religion_spirituality",
+      "name": "Spirituality",
+      "description": "Tradiciones religiosas, creencias, prácticas y estudio comparado.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "crafts_trades",
+      "parent": "knowledge",
+      "name": "Oficios y artesanía",
+      "description": "Habilidades manuales, reparación y fabricación artesanal.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "crafts_trades__woodworking",
+      "parent": "crafts_trades",
+      "name": "Woodworking",
+      "description": "Habilidades manuales, reparación y fabricación artesanal.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "crafts_trades__textiles",
+      "parent": "crafts_trades",
+      "name": "Textiles",
+      "description": "Habilidades manuales, reparación y fabricación artesanal.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "crafts_trades__repair_maintenance",
+      "parent": "crafts_trades",
+      "name": "Repair maintenance",
+      "description": "Habilidades manuales, reparación y fabricación artesanal.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "home_daily_life",
+      "parent": "knowledge",
+      "name": "Hogar y vida cotidiana",
+      "description": "Organización doméstica, vivienda y actividades del día a día.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "home_daily_life__household_management",
+      "parent": "home_daily_life",
+      "name": "Household management",
+      "description": "Organización doméstica, vivienda y actividades del día a día.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "home_daily_life__gardening",
+      "parent": "home_daily_life",
+      "name": "Gardening",
+      "description": "Organización doméstica, vivienda y actividades del día a día.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "home_daily_life__home_improvement",
+      "parent": "home_daily_life",
+      "name": "Home improvement",
+      "description": "Organización doméstica, vivienda y actividades del día a día.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "relationships_care",
+      "parent": "knowledge",
+      "name": "Relaciones y cuidados",
+      "description": "Interacciones personales, crianza y cuidados cotidianos.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "relationships_care__interpersonal_relationships",
+      "parent": "relationships_care",
+      "name": "Interpersonal relationships",
+      "description": "Interacciones personales, crianza y cuidados cotidianos.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "relationships_care__parenting",
+      "parent": "relationships_care",
+      "name": "Parenting",
+      "description": "Interacciones personales, crianza y cuidados cotidianos.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "relationships_care__caregiving",
+      "parent": "relationships_care",
+      "name": "Caregiving",
+      "description": "Interacciones personales, crianza y cuidados cotidianos.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "media_information",
+      "parent": "knowledge",
+      "name": "Medios e información",
+      "description": "Periodismo, documentación, bibliotecas y alfabetización mediática.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "media_information__journalism",
+      "parent": "media_information",
+      "name": "Journalism",
+      "description": "Periodismo, documentación, bibliotecas y alfabetización mediática.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "media_information__library_information_science",
+      "parent": "media_information",
+      "name": "Library information science",
+      "description": "Periodismo, documentación, bibliotecas y alfabetización mediática.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "media_information__media_literacy",
+      "parent": "media_information",
+      "name": "Media literacy",
+      "description": "Periodismo, documentación, bibliotecas y alfabetización mediática.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "security_safety",
+      "parent": "knowledge",
+      "name": "Seguridad y emergencias",
+      "description": "Prevención, resiliencia y estudio de riesgos físicos y digitales.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "security_safety__cybersecurity",
+      "parent": "security_safety",
+      "name": "Cybersecurity",
+      "description": "Prevención, resiliencia y estudio de riesgos físicos y digitales.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "security_safety__emergency_management",
+      "parent": "security_safety",
+      "name": "Emergency management",
+      "description": "Prevención, resiliencia y estudio de riesgos físicos y digitales.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "security_safety__occupational_safety",
+      "parent": "security_safety",
+      "name": "Occupational safety",
+      "description": "Prevención, resiliencia y estudio de riesgos físicos y digitales.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "mobility_travel",
+      "parent": "knowledge",
+      "name": "Movilidad y viajes",
+      "description": "Transporte, logística, orientación y turismo.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "mobility_travel__transport_logistics",
+      "parent": "mobility_travel",
+      "name": "Transport logistics",
+      "description": "Transporte, logística, orientación y turismo.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "mobility_travel__navigation",
+      "parent": "mobility_travel",
+      "name": "Navigation",
+      "description": "Transporte, logística, orientación y turismo.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "mobility_travel__tourism",
+      "parent": "mobility_travel",
+      "name": "Tourism",
+      "description": "Transporte, logística, orientación y turismo.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "culture_local_knowledge",
+      "parent": "knowledge",
+      "name": "Culturas y saberes locales",
+      "description": "Conocimientos situados, tradiciones orales y diversidad cultural.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "culture_local_knowledge__oral_traditions",
+      "parent": "culture_local_knowledge",
+      "name": "Oral traditions",
+      "description": "Conocimientos situados, tradiciones orales y diversidad cultural.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "culture_local_knowledge__community_knowledge",
+      "parent": "culture_local_knowledge",
+      "name": "Community knowledge",
+      "description": "Conocimientos situados, tradiciones orales y diversidad cultural.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "culture_local_knowledge__cultural_practices",
+      "parent": "culture_local_knowledge",
+      "name": "Cultural practices",
+      "description": "Conocimientos situados, tradiciones orales y diversidad cultural.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "fiction_speculation",
+      "parent": "knowledge",
+      "name": "Ficción y especulación",
+      "description": "Mundos inventados e hipótesis creativas; no afirmaciones factuales.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "fiction_speculation__fictional_worlds",
+      "parent": "fiction_speculation",
+      "name": "Fictional worlds",
+      "description": "Mundos inventados e hipótesis creativas; no afirmaciones factuales.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "fiction_speculation__speculative_scenarios",
+      "parent": "fiction_speculation",
+      "name": "Speculative scenarios",
+      "description": "Mundos inventados e hipótesis creativas; no afirmaciones factuales.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "fiction_speculation__creative_roleplay",
+      "parent": "fiction_speculation",
+      "name": "Creative roleplay",
+      "description": "Mundos inventados e hipótesis creativas; no afirmaciones factuales.",
+      "origin": "proposed_extension"
+    },
+    {
+      "id": "unknown",
+      "parent": "knowledge",
+      "name": "Desconocido o insuficiente contexto",
+      "description": "Abstención explícita; no selecciona automáticamente expertos.",
+      "origin": "control"
+    }
+  ]
+}

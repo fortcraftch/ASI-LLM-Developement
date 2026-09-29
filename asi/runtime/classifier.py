@@ -47,18 +47,21 @@ def predict(embedding, head, tokens, names, threshold=0.5):
     return [names[i] for i in sorted(chosen, key=lambda i: float(scores[i]), reverse=True)]
 
 
-def load_head(path, model, names, manifest_hash=None):
+def load_head(path, model, names, manifest_hash=None, taxonomy_identity=None):
     payload = torch.load(path, map_location='cpu', weights_only=False)
     if payload.get('schema') != 1 or payload['pool_names'] != names or payload['embedding_sha256'] != embedding_hash(model.embed):
         raise ValueError('Head belongs to a different embedding checkpoint or pool order')
     if manifest_hash is not None and payload.get('pool_manifest_sha256') != manifest_hash:
         raise ValueError('Classifier taxonomy differs from the runtime manifest')
+    if payload.get('taxonomy') != taxonomy_identity:
+        raise ValueError('Classifier uses a different semantic taxonomy')
     head = IntegratedHead(model.config.n_embd, len(names), payload['hidden'])
     head.load_state_dict(payload['head'])
+    head.trained_labels = payload.get('trained_labels', names)
     return head.eval()
 
 
-def read_examples(path, names):
+def read_examples(path, names, taxonomy=None):
     import tiktoken
     enc = tiktoken.get_encoding('gpt2')
     splits = {'train': [], 'val': []}
@@ -79,7 +82,10 @@ def read_examples(path, names):
         if key in seen and seen[key] != split:
             raise ValueError('Duplicate effective input across train and validation')
         seen[key] = split
-        target = [float(name in row['labels']) for name in names]
+        labels = set(row['labels'])
+        if taxonomy:
+            labels = {ancestor for label in labels for ancestor in taxonomy.ancestors(label)}
+        target = [float(name in labels) for name in names]
         splits[split].append((tokens, target))
     if any(not rows for rows in splits.values()):
         raise ValueError('Both train and val examples are required')
@@ -90,6 +96,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--checkpoint', type=Path, required=True)
     parser.add_argument('--pool-manifest', type=Path, required=True)
+    parser.add_argument('--taxonomy', type=Path, help='Train shared semantic labels instead of model pool labels; requires examples')
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('--examples', type=Path, help='JSONL: text or tokens, labels, split=train|val; supports real multilabel targets')
     source.add_argument('--data-root', type=Path, help='Classified token shards; single-positive labels only')
@@ -114,12 +121,20 @@ def main():
     manifest = PoolManifest(args.pool_manifest)
     names = manifest.names
     validate_pool_identity(model, metadata, names)
+    taxonomy = None
+    if args.taxonomy:
+        from asi.taxonomy import Taxonomy
+        if not args.examples:
+            parser.error('Semantic taxonomy requires explicitly labeled --examples')
+        taxonomy = Taxonomy.read(args.taxonomy)
+        names = taxonomy.labels
     torch.manual_seed(args.seed)
     rng = random.Random(args.seed)
     head = IntegratedHead(model.config.n_embd, len(names), args.hidden).to(args.device)
     optimizer = torch.optim.AdamW(head.parameters(), lr=args.lr)
     if args.examples:
-        examples = read_examples(args.examples, names)
+        examples = read_examples(args.examples, names, taxonomy)
+        positive_counts = {name: sum(int(row[1][i]) for row in examples['train']) for i, name in enumerate(names)}
         validation = examples['val']
         def batch():
             return [rng.choice(examples['train']) for _ in range(args.batch_size)]
@@ -141,6 +156,7 @@ def main():
         validation = [sample(val, name) for name in names for _ in range(args.val_per_pool)]
         provenance = {'dataset_manifest_sha256': fingerprint(args.data_root / 'manifest.json'),
                       'labels': 'single pool per window; simultaneous labels not trained'}
+        positive_counts = None
     head.train()
     for step in range(args.steps):
         rows = batch()
@@ -163,10 +179,15 @@ def main():
     targets = torch.tensor(targets)
     predicted = scores.sigmoid() >= .5
     empty = ~predicted.any(1)
-    predicted[empty, scores[empty].argmax(1)] = True
+    if taxonomy is None:
+        predicted[empty, scores[empty].argmax(1)] = True
     truth = targets.bool()
     tp = int((predicted & truth).sum()); fp = int((predicted & ~truth).sum()); fn = int((~predicted & truth).sum())
     report = {'schema': 1, 'pool_names': names, 'validation_examples': len(targets),
+              'label_space': 'semantic_taxonomy' if taxonomy else 'model_pools',
+              'taxonomy': taxonomy.identity if taxonomy else None,
+              'training_positive_examples_by_label': positive_counts,
+              'metrics_label_scope': 'includes ancestor labels' if taxonomy else 'model pools',
               'bce': float(nn.functional.binary_cross_entropy_with_logits(scores, targets)),
               'micro_f1': 2 * tp / max(1, 2 * tp + fp + fn),
               'exact_label_match': float((predicted == truth).all(1).float().mean()),
@@ -174,9 +195,11 @@ def main():
               'head_weight_bytes': sum(p.numel() * p.element_size() for p in head.parameters()),
               'reused_embedding_parameters': model.embed.weight.numel(), 'additional_embedding_parameters': 0,
               'checkpoint_sha256': fingerprint(args.checkpoint), 'provenance': provenance,
-              'settings': vars(args), 'note': 'Frozen bag-of-embeddings baseline, no transformer experts executed. Fixed threshold 0.5 plus argmax fallback. Validation is not a final test.'}
+              'settings': vars(args), 'note': 'Frozen bag-of-embeddings baseline; no experts executed. Threshold 0.5; argmax fallback only for legacy pool labels. Semantic mode permits abstention. Validation is not a final test.'}
     args.output.mkdir(parents=True)
     torch.save({'schema': 1, 'head': head.cpu().state_dict(), 'hidden': args.hidden, 'pool_names': names,
+                'taxonomy': taxonomy.identity if taxonomy else None,
+                'trained_labels': [name for name in names if positive_counts is None or positive_counts[name] > 0],
                 'pool_manifest_sha256': fingerprint(args.pool_manifest),
                 'embedding_sha256': embedding_hash(model.embed), 'report': report}, args.output / 'head.pt')
     (args.output / 'report.json').write_text(json.dumps(report, indent=2, default=str), encoding='utf-8')

@@ -126,6 +126,50 @@ La primera entrega del paso 2.4 permite definir taxonomía, contar parámetros y
 
 No hay todavía resultados de calidad ni de velocidad de estas nuevas arquitecturas. Las pruebas unitarias verifican comportamiento del código; no sustituyen los entrenamientos y evaluaciones del TFG.
 
+## Reinicio automático opcional y checkpoints rotativos
+
+Añadir a **los mismos argumentos del entrenamiento**:
+
+```bash
+--auto-restart --save-interval 10 --keep-checkpoints 3 --max-restarts 5 --restart-delay 15
+```
+
+Para un entrenamiento ya empezado, añadir también `--resume ruta/al/ultimo/model_XXXXX.pt`.
+Mantener batch, calendario, receta y demás ajustes originales.
+
+El supervisor abre un proceso nuevo tras un error CUDA identificado en su salida,
+espera 15 segundos y reanuda el último checkpoint confirmado **en esa ejecución**.
+No intenta seguir usando el contexto CUDA fallido. Guarda modelo, optimizador,
+posición/RNG de entrenamiento y validación, y estado de selección de pools.
+Los checkpoints antiguos sin estado de validación siguen siendo compatibles,
+pero reinician el recorrido de validación.
+
+Con `--auto-restart`, los valores por defecto son guardar cada 10 actualizaciones
+y conservar 3 checkpoints, salvo que se indiquen explícitamente otros valores.
+El contador de nombres empieza en cero: diez actualizaciones producen `model_00009.pt`.
+Sin esta opción se mantiene el intervalo de la receta y no se elimina nada por
+defecto. `--keep-checkpoints 0` conserva todos; la rotación funciona también sin
+reinicios. Solo elimina archivos `model_<numero>.pt` en `--log-dir`, después de
+guardar correctamente el nuevo. **Usar una carpeta exclusiva para el entrenamiento**;
+copiar fuera cualquier checkpoint histórico que se quiera conservar.
+
+El guardado escribe un temporal, sincroniza a disco y sustituye el destino de forma
+atómica. Hace falta espacio para los checkpoints retenidos más el nuevo temporal.
+Un guardado fallido no reemplaza el anterior ni inicia la rotación. El supervisor
+solo adopta archivos cuyo guardado ha terminado; no busca otros experimentos.
+Al volver a lanzar manualmente el comando hay que indicar `--resume`: no selecciona
+automáticamente checkpoints de ejecuciones previas.
+
+Se repiten los pasos no guardados. Si falla antes del primer guardado, vuelve al
+checkpoint inicial indicado o empieza desde cero. El límite es de cinco reinicios
+totales por invocación; errores de datos/argumentos/disco y Ctrl+C no se relanzan.
+`restart.log` conserva la salida de los intentos. `log.txt` puede contener pasos
+repetidos al recuperar trabajo perdido; no contarlos como actualizaciones nuevas.
+
+Esto permite recuperarse de fallos intermitentes, pero no arregla un controlador
+bloqueado: si CUDA sigue fallando, se alcanza el límite y el proceso termina.
+No reinicia el sistema ni recupera procesos que se quedan colgados sin terminar.
+
 ## Diagnóstico de timeout CUDA en MoE
 
 Un error 702 observado en `loss.item()` puede proceder de un kernel anterior, porque esa lectura sincroniza CUDA. Terminar el proceso que falló y lanzar uno nuevo. En Linux, establecer `export ASI_MOE_BACKEND=bmm` antes del comando habitual permite aislar la ruta `grouped_mm`. `auto` conserva la selección anterior; `grouped` fuerza ese backend y falla si no está disponible. Los errores del backend se propagan sin intentar continuar con otro kernel en un contexto posiblemente inválido.

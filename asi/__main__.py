@@ -5,6 +5,11 @@ import sys
 
 
 COMMANDS = {
+    'recovery': ('asi.experiments.recovery', 'main', 'Calibrar selecciones y ajustar routers o expertos LoRA con memoria limitada'),
+    'public-moe': ('asi.experiments.public_moe', 'main', 'Preparar y comparar el MoE público OLMoE con AirLLM'),
+    'routing-study': ('asi.experiments.routing_study', 'main', 'Separar residencia, activación y pesos de mezcla en OLMoE'),
+    'tasks': ('asi.runtime.tasks', 'main', 'Proponer y planificar subtareas con dependencias y límite de cambios de pools'),
+    'taxonomy': ('asi.taxonomy', 'main', 'Validar taxonomía común, declarar categorías del modelo y resolver etiquetas'),
     'adaptive': {
         'run': ('asi.runtime.adaptive', 'main', 'Planificar y ejecutar pools simultáneos con memoria limitada'),
         'evaluate': ('asi.experiments.adaptive', 'main', 'Calibrar degradación de mezclas y expertos INT8'),
@@ -14,6 +19,7 @@ COMMANDS = {
     'graphs': ('asi.analysis.plots', 'main', 'Explicar y graficar pruebas ya ejecutadas, sin cargar modelos'),
     'comparison': ('asi.experiments.comparison', 'main', 'Preparar y ejecutar por separado la comparación de tres modelos'),
     'data': {
+        'classifier-examples': ('asi.data.classifier_examples', 'main', 'Crear un corpus semilla sintético con splits separados'),
         'prepare': ('asi.data.prepare', 'main', 'Clasificar documentos y crear shards'),
         'pools': ('asi.data.pools', 'main', 'Construir el manifiesto de pools'),
         'inspect': ('asi.data.inspect', 'main', 'Consultar la distribución del dataset'),

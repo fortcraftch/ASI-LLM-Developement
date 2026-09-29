@@ -1,0 +1,18 @@
+{
+  "input": "Explícame las matemáticas de una red neuronal.",
+  "relation": "coupled",
+  "tasks": [
+    {
+      "id": "explain",
+      "prompt": "Explica conjuntamente cómo los vectores, matrices y derivadas permiten el funcionamiento y aprendizaje de una red neuronal.",
+      "categories": [
+        "mathematics_statistics",
+        "machine_learning_ai"
+      ],
+      "depends_on": []
+    }
+  ],
+  "schema": 1,
+  "origin": "original_synthetic_case",
+  "human_reviewed": false
+}

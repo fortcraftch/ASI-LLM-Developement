@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "description": "Original synthetic English QA, tiny technical pilot; not a representative quality benchmark.",
+  "examples": [
+    {"id":"code_train_1","split":"train","category":"computer_science_software_engineering","prompt":"What is the difference between a Python list and a tuple?","answer":"A list is mutable: its elements can be changed. A tuple is immutable: its elements cannot be reassigned after creation."},
+    {"id":"code_train_2","split":"train","category":"computer_science_software_engineering","prompt":"What does a function return statement do?","answer":"A return statement ends the current function call and sends a value back to its caller."},
+    {"id":"math_train_1","split":"train","category":"mathematics_statistics","prompt":"Explain the mean of a set of numbers.","answer":"The mean is the sum of the numbers divided by how many numbers there are. The mean of 2 and 6 is 4."},
+    {"id":"math_train_2","split":"train","category":"mathematics_statistics","prompt":"What does a probability of zero mean?","answer":"In a finite probability space, an event with probability zero cannot occur. In continuous spaces, an individual outcome can have probability zero without being impossible."},
+    {"id":"bio_train_1","split":"train","category":"life_sciences_biology","prompt":"What is the role of DNA in a cell?","answer":"DNA stores genetic information. Its sequence provides instructions that cells use to make RNA and proteins."},
+    {"id":"bio_train_2","split":"train","category":"life_sciences_biology","prompt":"Why do organisms need energy?","answer":"Organisms need energy to maintain their cells, grow, repair damage and reproduce. Many obtain usable energy by breaking down nutrients."},
+    {"id":"code_dev_1","split":"dev","category":"computer_science_software_engineering","prompt":"What is a syntax error in a program?","answer":"A syntax error means that the code violates the grammar of the programming language, so the parser cannot interpret it as a valid program."},
+    {"id":"math_dev_1","split":"dev","category":"mathematics_statistics","prompt":"How do you find the perimeter of a rectangle?","answer":"Add the lengths of all four sides. For length L and width W, the perimeter is 2 times L plus 2 times W."},
+    {"id":"bio_dev_1","split":"dev","category":"life_sciences_biology","prompt":"What is the basic function of a cell membrane?","answer":"The cell membrane separates the cell from its surroundings and regulates which substances enter and leave."},
+    {"id":"code_test_1","split":"test","category":"computer_science_software_engineering","prompt":"Why can an infinite loop prevent a program from finishing?","answer":"An infinite loop keeps repeating because its stopping condition is never reached. The program cannot continue past that loop unless something interrupts it."},
+    {"id":"math_test_1","split":"test","category":"mathematics_statistics","prompt":"What is the median of 1, 3 and 8? Explain briefly.","answer":"The median is 3. After sorting the three numbers, 3 is the middle value."},
+    {"id":"bio_test_1","split":"test","category":"life_sciences_biology","prompt":"How does photosynthesis help a plant grow?","answer":"Photosynthesis uses light energy to make sugars from carbon dioxide and water. Those sugars provide energy and carbon for growth."}
+  ]
+}

@@ -1,76 +1,55 @@
-# ASI: investigación sobre expertos, routing y memoria
+# ASI: expertos MoE y memoria limitada
 
-Estudiamos cómo ejecutar LLM mayores que la memoria disponible manteniendo pocos
-expertos en GPU y evitando transferencias en cada token generado. El objetivo no
-es acelerar un modelo que ya cabe completo en GPU. ASI es el nombre del prototipo,
-no una afirmación de superinteligencia.
+Investigamos cómo ejecutar LLM mayores que la VRAM disponible manteniendo pocos
+expertos en GPU y reduciendo las transferencias durante cada respuesta. Medimos
+el ahorro de memoria junto con la degradación de calidad. ASI es el nombre del
+prototipo, no una afirmación de superinteligencia.
 
-Hay dos líneas: **entrenar expertos con pools definidos** y **categorizar expertos
-ya entrenados**. Comparten instrumentación y gestión de memoria, pero conservan
-sus arquitecturas y checkpoints.
+Hay dos líneas: entrenar expertos con pools definidos y clasificar expertos de
+modelos ya entrenados. Las recetas y los checkpoints de ambas líneas son distintos.
 
-Empieza por el [mapa del TFG y protocolo](docs/PLAN.md), consulta los
-[comandos y migración](docs/USAGE.md) y los [resultados interpretados](docs/FINDINGS.md).
-Se conserva el [documento original](docs/TFG_original.txt).
+## Dónde empezar
 
-Para el nuevo dataset de 137 categorías y la RTX 5060 Ti de 16 GB, consulta el
-[plan de entrenamiento bajo 124M parámetros](docs/TRAINING_124M.md): ocho pools,
-parejas fijas, modelos base de control y modelos independientes por tema.
+| Necesidad | Documento de referencia |
+|---|---|
+| Entender el proyecto y los términos | [Recapitulación](docs/RECAPITULACION.md) |
+| Saber qué está hecho, qué falta y qué archivo corresponde a cada paso | [Registro del TFG](docs/plan.json), consultable con `python -m asi plan` |
+| Diseñar e interpretar experimentos | [Protocolo](docs/PLAN.md) |
+| Ejecutar comandos y migrar scripts antiguos | [Uso](docs/USAGE.md) |
+| Entrenar los modelos de 124M | [Entrenamiento](docs/TRAINING_124M.md) |
+| Decidir residencia, unir pools y usar caché INT8 GPU | [Runtime adaptativo](docs/ADAPTIVE.md) |
+| Compartir categorías entre modelos y clasificador | [Taxonomía](docs/TAXONOMY.md) |
+| Entrenar el clasificador y planificar subtareas | [Ejemplos y tareas](docs/CLASSIFIER_DATA_TASKS.md) |
+| Comparar los tres modelos entrenados | [Batería controlada](docs/COMPARISON.md) |
+| Probar OLMoE público frente a AirLLM | [Piloto público](docs/PUBLIC_MOE.md) |
+| Investigar la pérdida de coherencia al fijar expertos | [Estudio de routing](docs/ROUTING_STUDY.md) |
+| Recuperar lenguaje con routers y LoRA de expertos, bajo varias selecciones | [Fine-tuning de recuperación](docs/RECOVERY.md) |
+| Consultar resultados ya obtenidos | [Hallazgos](docs/FINDINGS.md) |
+| Entender las diferencias con AirLLM | [Trabajo relacionado](docs/AIRLLM.md) |
 
-El [runtime adaptativo opcional](docs/ADAPTIVE.md) añade selección por memoria y
-calidad calibrada, pools simultáneos, una cabeza clasificadora integrada y caché
-INT8 en GPU, sin modificar las recetas de entrenamiento.
+El registro distingue implementación, pruebas sintéticas y evidencia experimental.
+No se ha demostrado todavía que fijar expertos conserve la calidad de los modelos
+públicos. Las gráficas existentes se generan con `python -m asi graphs`.
 
-Para una explicación sencilla, lee la [recapitulación](docs/RECAPITULACION.md).
-`python -m asi graphs` genera un panel local con gráficas de informes existentes,
-sin abrir modelos. La [comparación con AirLLM](docs/AIRLLM.md) distingue descarga
-de pesos y selección fija de expertos por contexto.
-
-La [comparación extensa de tres modelos](docs/COMPARISON.md) está preparada y
-pendiente de ejecución cuando termine su entrenamiento. `python -m asi comparison`
-separa preparación, registro de checkpoints, ejecución por trabajo y resumen.
-
-```text
-asi/                    Código importable; entrada: python -m asi
-  data/                 Clasificación, shards y manifiestos
-  models/               Modelo por pools y adaptador del original
-  runtime/              Clasificador, caché y generación
-  analysis/             Rutas y clasificación de expertos
-  experiments/          Entrenamiento, auditoría y comparación posthoc
-  quantization.py       Exportación offline INT8
-  plan.py               Consulta del mapa de investigación
-configs/                Configuraciones
-examples/               Prompts de diagnóstico
-tests/                  Pruebas de corrección
-docs/                   Plan, uso y conclusiones
-legacy/                 Utilidades anteriores fuera del flujo actual
-fineweb_edu_specialized_pipeline/specialized_fineweb/  Dataset existente
-results/                Checkpoints e informes locales, excluidos de Git
-```
-
-Desde la raíz, con el entorno activado:
-
-```powershell
+```bash
 python -m asi --help
-python -m asi plan
-python -m asi plan 2.2
+python -m asi plan 2.4
 python -m unittest discover -s tests -v
 ```
 
-El refactor conserva pesos, formatos y dataset. Las rutas antiguas de scripts se
-sustituyen por los comandos de la guía. La arquitectura externa del checkpoint
-de ocho expertos continúa siendo una dependencia explícita.
+## Organización
 
-Existe caché **RAM → GPU** con precarga y carga bajo demanda, y un predictor
-estadístico de uso aprendido de sesiones. `python -m asi cache-study` lo compara
-con LRU, popularidad y precarga temática con el router original intacto.
-`python -m asi decode-study` mide generación incremental con un límite estricto
-de dos expertos enrutados por capa. `python -m asi export-store` prepara expertos
-para carga desde disco con una caché RAM limitada, sin cargar todos sus pesos al
-iniciar la inferencia. Backbone, expertos compartidos y KV siguen ocupando GPU.
-La compresión ejecutable dentro de GPU sigue pendiente.
-La existencia del predictor no demuestra una mejora: consulta sus resultados.
+- `asi/`: código importable; datos, modelos, runtime, análisis y experimentos.
+- `configs/`: recetas y manifiestos. Los del experimento 124M están congelados.
+- `data/classifier_seed_v1/`: ejemplos sintéticos del clasificador y subtareas.
+- `tests/`: pruebas de mecanismos; no equivalen a resultados de calidad.
+- `docs/`: guías, protocolo y documentos originales del TFG.
+- `legacy/`: tres utilidades históricas, fuera de la CLI y del protocolo actual.
+- `results/`: informes y checkpoints locales, excluidos de Git.
+- `public_models/`: descargas públicas verificadas, excluidas de Git.
+- `fineweb_edu_specialized_pipeline/specialized_fineweb/`: dataset local.
 
-`python -m asi fixed-study` evalúa otra intervención: la clase selecciona dos
-expertos fijos por capa, se ejecutan ambos y **E no se calcula en inferencia**.
-Este modo modifica el modelo; mide explícitamente degradación frente al original.
+`requirements.txt` contiene las dependencias base. `requirements-public-moe.txt`
+incluye esa base y los extras de AirLLM. Ambos se instalan en el mismo entorno
+(localmente `F:\.venv`), sin crear una segunda venv. OLMoE usa respaldo en disco
+y una caché RAM ajustable; no exige alojar todos los expertos en RAM.

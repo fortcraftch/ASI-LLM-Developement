@@ -12,55 +12,21 @@ recetas disponibles y las mediciones aún pendientes.
 El registro completo está en [plan.json](plan.json). Consultarlo con
 `python -m asi plan` o `python -m asi plan 1.4` no carga modelos.
 
-## Estado por paso
+## Estado y archivos por paso
 
-Las rutas abreviadas parten de `asi/`. «Disponible» describe herramientas, no
-hipótesis demostradas.
+La fuente única del estado, archivos asociados y tareas pendientes es
+[plan.json](plan.json). Evitamos mantener aquí otra tabla manual que pueda
+quedarse desactualizada. Consultar todo el mapa o un paso concreto:
 
-| Paso | Código principal | Disponible | Pendiente |
-|---|---|---|---|
-| **1.1** Entrenar por categorías | `data/*`, `models/domain.py`, `experiments/train.py`, `analysis/experts.py` | Pools, entrenamiento restringido, aislamiento de rutas y gradientes | Entrenamiento suficiente y evaluación/ablaciones que demuestren especialización |
-| **1.2** Calidad frente al original | `experiments/audit.py`, `models/*` | Auditoría restringida/libre/ablación de un checkpoint | Control entrenado con iguales datos, parámetros y presupuesto; varias semillas |
-| **1.3** GPU/RAM/SSD | `runtime/cache.py`, `runtime/storage.py`, `models/original.py` | Inventario, GPU limitada por capa, shards de disco y caché RAM limitada; arranque sin cargar expertos | RSS total, I/O físico y generalización a modelos grandes; compresión pendiente |
-| **1.4** Predicción de caché | `runtime/routing.py`, `runtime/cache.py`, `experiments/cache_study.py` | Predictor estadístico entrenable, actualización online opcional y comparación con LRU/popularidad/semántica | Más datos independientes, ajuste en desarrollo y demostrar beneficio neto |
-| **1.5** Conversaciones | `runtime/generation.py`, `experiments/cache_study.py`, `experiments/decode_study.py` | Sesiones diagnósticas, generación incremental real, repetición, swapping por token y límite de dos expertos/capa | Conversaciones reales largas, corpus mayor y varias semillas |
-| **2.1** Categorizar pesos existentes | `models/original.py`, `analysis/experts.py`, `experiments/posthoc.py` | Calibración por capa, E, etiquetas candidatas y hashes | Estabilidad y especificidad; carga escalable de modelos oficiales grandes |
-| **2.2** Comparar con router E | `experiments/posthoc.py`, `experiments/fixed_study.py`, `runtime/cache.py` | Original, caché exacta y expertos fijos sin E; degradación por dominio y control de escala | Calidad externa, replicación con más checkpoints y corpus |
-| **2.3** N activos de N/2N/XN | `experiments/fixed_study.py`, `experiments/train.py`, `models/domain.py` | Caso N sobre N sin E, toda la clase residente; curvas de cobertura K previas | Comparación controlada N/2N/XN y cuantización ejecutable |
-| **3.1** Escalar arquitectura | Sin implementación específica | Protocolo reutilizable | Verificar destino y demostrar beneficio antes de escalar |
-| **3.2** Herramientas/internet | Sin implementación | — | Integración, permisos y evaluación |
-| **3.3** Compresión en GPU | `quantization.py` como preparación | Exportador offline INT8 | Tier comprimido en GPU, descompresión/kernels y evaluación |
+```bash
+python -m asi plan
+python -m asi plan 2.4
+```
 
-## Responsabilidad de cada archivo o grupo
-
-| Archivo o grupo | Responsabilidad y pasos |
-|---|---|
-| `asi/data/prepare.py` | Clasifica documentos, aplica reglas de subdominio, divide train/val y escribe shards. **1.1**, corpus para **2.1**. |
-| `asi/data/pools.py`, `configs/expert_pools.json` | Agrupan categorías sin copiar tokens y rechazan asignaciones inválidas. **1.1, 2.1**. |
-| `asi/data/inspect.py` | Revisa distribución y cobertura. Control de **1.1, 2.1**. |
-| `asi/models/domain.py`, `configs/domain_experts.json` | Arquitectura con pools. El JSON documenta una referencia; el entrenamiento usa argumentos. **1.1, 1.2, 2.3**. |
-| `asi/models/original.py` | Carga estricta de arquitectura externa, hashes y adaptación de generación. **2.1, 2.2**. |
-| `asi/experiments/train.py` | Muestreo, lectura continua de shards pequeños, entrenamiento, validación y checkpoints. **1.1, 2.3**. |
-| `asi/experiments/audit.py` | Compara routing restringido/libre/ablación, exporta pérdida, memoria y trazas. **1.1–1.3, 1.5**. |
-| `asi/experiments/posthoc.py` | Calibración, evaluación separada y comparación de políticas. **2.1–2.3**. |
-| `asi/experiments/cache_study.py` | Aprende uso por contexto en train, congela en test y compara cinco políticas en GPU con igual presupuesto entre cachés. **1.4, 1.5, 2.2**. |
-| `asi/experiments/decode_study.py` | Compara las cinco políticas generando respuestas, separa prefill/decode y registra cada token bajo límite por capa. **1.3, 1.5, 2.2**. |
-| `asi/experiments/fixed_study.py`, `tests/test_fixed_routing.py` | N sobre N sin ejecutar E, clase conocida/predicha/global, escala uniforme o calibrada, NLL y generación. Tests de bypass real, restauración del router y ausencia de cargas durante ejecución. **2.2, 2.3**. |
-| `asi/analysis/experts.py` | `RoutingTrace` y `ExpertCalibrator`: identidad capa/experto, selecciones, pesos, E·h y asociaciones entre capas. **1.1, 1.5, 2.1, 2.2**. |
-| `asi/runtime/routing.py` | Clasificación multietiqueta, continuidad heurística y `ExpertUsagePredictor`, que aprende tasas por etiqueta actual/anterior. **1.4, 1.5**. |
-| `asi/runtime/cache.py` | Caché por pools y caché original; backing RAM, residencia GPU, precarga, desalojos e inventario. **1.3–1.5, 2.2**. |
-| `asi/runtime/storage.py` | Exporta shards sin comprimir y gestiona LRU de tensores de expertos en RAM, con hashes y lecturas de disco. Junto con el cargador meta en `models/original.py`, permite arrancar sin cargar todos los expertos. **1.3, 2.1, 2.2**. |
-| `asi/runtime/generation.py` | Dos modalidades de conversación, contexto opcional y registros. **1.5, 2.2**. |
-| `asi/quantization.py` | Exporta pesos INT8 y escalas; no ejecuta expertos comprimidos. Preparación de **1.3, 2.3, 3.3**. |
-| `asi/__main__.py`, `asi/__init__.py`, `asi/plan.py` | CLI, rutas y mapa: infraestructura transversal. Los demás `__init__.py` delimitan paquetes. |
-| `examples/prompts.jsonl` | Diagnóstico, mezclas y cambios de tema. **1.5, 2.2**; no es un benchmark de calidad. |
-| `examples/sessions.jsonl`, `tests/test_cache_study.py` | Sesiones diagnósticas redactadas con split explícito y pruebas de causalidad temporal, serialización, aislamiento train/test y precarga exacta CPU/GPU. **1.4, 1.5, 2.2**. |
-| `tests/test_expert_runtime.py` | Aislamiento, equivalencia de cómputo, caché CUDA, calibración y shards. **1.1, 1.3, 2.1, 2.2**. |
-| `tests/test_posthoc.py` | Muestreo, cobertura y procedencia. **2.1–2.3**. |
-| `tests/test_incremental_storage.py` | KV incremental, límites por capa, métricas por token, carga meta, límites RAM, integridad y equivalencia de ejecución desde disco. **1.3, 1.5, 2.2**. |
-| `tests/test_project_structure.py` | CLI, importaciones sin ejecución y rutas del mapa: infraestructura. |
-| `legacy/fineweb.py`, `legacy/hellaswag.py`, `legacy/plot_results.py` | Utilidades históricas de descarga, evaluación y gráficas. Fuera del protocolo actual; no prueban un paso por sí solas. |
-| `requirements.txt`, `.gitignore`, `README.md`, `docs/*` | Dependencias, separación de artefactos y documentación transversal. |
+Las guías del [índice principal](../README.md) explican los comandos y límites
+de cada componente. «Implementado» significa que existe el mecanismo; no que
+se haya demostrado la hipótesis con modelos entrenados. El piloto público
+[OLMoE/AirLLM](PUBLIC_MOE.md) distingue pruebas pequeñas de mediciones de 7B.
 
 ## Conceptos e interpretación
 

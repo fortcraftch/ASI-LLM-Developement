@@ -49,7 +49,7 @@
       "tests/test_incremental_storage.py"
     ],
     "available": "Residencia limitada por capa, inventario, exportación de shards, arranque meta con backbone y caché RAM limitada para expertos leídos de disco.",
-    "pending": "RSS total e I/O físico, evaluación a mayor escala; la compresión ejecutable y la caché RAM predictiva siguen pendientes."
+    "pending": "RSS total e I/O físico, evaluación a mayor escala y caché RAM predictiva. La caché INT8 GPU opcional se detalla en 3.3; su utilidad con modelos entrenados sigue sin validarse."
   },
   {
     "id": "1.4",
@@ -109,10 +109,19 @@
       "asi/experiments/decode_study.py",
       "asi/experiments/fixed_study.py",
       "asi/runtime/routing.py",
-      "tests/test_fixed_routing.py"
+      "tests/test_fixed_routing.py",
+      "asi/experiments/routing_study.py",
+      "asi/models/hf_olmoe.py",
+      "docs/ROUTING_STUDY.md",
+      "asi/experiments/recovery.py",
+      "configs/recovery_pilot_v1.json",
+      "tests/test_recovery.py",
+      "docs/RECOVERY.md",
+      "asi/models/recovery_lora.py",
+      "configs/recovery_language_v2.json"
     ],
-    "available": "Baseline residente, prefetch conservando E y restricción de expertos; NLL, rutas, logits muestreados, tiempos y memoria. Estudio de sesiones con cinco políticas, calentamiento y tres repeticiones con orden aleatorio reproducible. Variante N sobre N con bypass real de E, clase conocida/predicha/global y control de escala train; evaluación emparejada de degradación. Opción 2 ejecutada en 377 ventanas (48.256 tokens), cinco variantes y generación: sin swapping interno pero degradación de NLL.",
-    "pending": "Benchmark ampliado por escenario, varias semillas, calidad externa y conversaciones reales largas; separar prefill/decode incremental."
+    "available": "Baseline residente, prefetch conservando E y restricción de expertos; NLL, rutas, logits muestreados, tiempos y memoria. Estudio de sesiones con cinco políticas, calentamiento y tres repeticiones con orden aleatorio reproducible. Variante N sobre N con bypass real de E, clase conocida/predicha/global y control de escala train; evaluación emparejada de degradación. Opción 2 ejecutada en 377 ventanas (48.256 tokens), cinco variantes y generación: sin swapping interno pero degradación de NLL. Estudio OLMoE con residentes K=8/16/32, activación A=8/16 y mezcla constante o router restringido; NLL y KL sobre continuaciones nativas congeladas. Ajuste de routers con expertos congelados, profesor offline y comparación independiente antes/después; CLI recovery. Piloto real OLMoE 32/8 ejecutado: 24 pasos, selección en dev del paso 18, mejora de CE/KL en tres ejemplos test pero persistencia de repeticiones, sin cargas de expertos durante generación. V2: LoRA persistente de la proyección de salida de expertos, objetivo supervisado con EOS, banco de selecciones y validación del peor grupo categoría/selección; corpus sintético ampliado a 60 ejemplos. Comparación v2 real completada: 144 pasos por variante, selección LoRA en paso 72; CE test 4,3605 con 16 residentes y 2,5748 con 32, frente a 5,8888 y 3,3839 del control de routers. Recuperación parcial; con 16 persiste repetición mayor que en el control. Cero cargas durante generación y retorno A→B→A estable.",
+    "pending": "Benchmark ampliado por escenario, varias semillas, calidad externa y conversaciones reales largas; separar prefill/decode incremental. Ampliar datos y seeds para recuperación; Ajuste completo de matrices densas pendiente; ampliar y validar LoRA con datos externos."
   },
   {
     "id": "2.3",
@@ -125,10 +134,19 @@
       "asi/quantization.py",
       "asi/experiments/fixed_study.py",
       "asi/runtime/routing.py",
-      "tests/test_fixed_routing.py"
+      "tests/test_fixed_routing.py",
+      "asi/experiments/routing_study.py",
+      "asi/models/hf_olmoe.py",
+      "docs/ROUTING_STUDY.md",
+      "asi/experiments/recovery.py",
+      "configs/recovery_pilot_v1.json",
+      "tests/test_recovery.py",
+      "docs/RECOVERY.md",
+      "asi/models/recovery_lora.py",
+      "configs/recovery_language_v2.json"
     ],
-    "available": "Curvas de cobertura por K y parámetros configurables de expertos por pool y activos. Caso N sobre N ejecutable con todos los expertos de la clase residentes y sin E. N=2 sobre 2 probado en todas las clases; 22 expertos enrutados residentes. Falta el barrido N/2N/XN controlado.",
-    "pending": "Entrenamientos comparables por tamaño, todas las instancias de la pool residentes, barrido de calidad/latencia y cuantización ejecutable. Cobertura sola no demuestra calidad."
+    "available": "Curvas de cobertura por K y parámetros configurables de expertos por pool y activos. Caso N sobre N ejecutable con todos los expertos de la clase residentes y sin E. N=2 sobre 2 probado en todas las clases; 22 expertos enrutados residentes. Falta el barrido N/2N/XN controlado. Estudio OLMoE con residentes K=8/16/32, activación A=8/16 y mezcla constante o router restringido; NLL y KL sobre continuaciones nativas congeladas. Ajuste de routers con expertos congelados, profesor offline y comparación independiente antes/después; CLI recovery. Piloto real OLMoE 32/8 ejecutado: 24 pasos, selección en dev del paso 18, mejora de CE/KL en tres ejemplos test pero persistencia de repeticiones, sin cargas de expertos durante generación. V2: LoRA persistente de la proyección de salida de expertos, objetivo supervisado con EOS, banco de selecciones y validación del peor grupo categoría/selección; corpus sintético ampliado a 60 ejemplos. Comparación v2 real completada: 144 pasos por variante, selección LoRA en paso 72; CE test 4,3605 con 16 residentes y 2,5748 con 32, frente a 5,8888 y 3,3839 del control de routers. Recuperación parcial; con 16 persiste repetición mayor que en el control. Cero cargas durante generación y retorno A→B→A estable.",
+    "pending": "Entrenamientos comparables por tamaño, todas las instancias de la pool residentes, barrido de calidad/latencia y cuantización ejecutable. Cobertura sola no demuestra calidad. Ampliar datos y seeds para recuperación; Ajuste completo de matrices densas pendiente; ampliar y validar LoRA con datos externos."
   },
   {
     "id": "2.4",
@@ -143,10 +161,26 @@
       "asi/runtime/classifier.py",
       "asi/experiments/adaptive.py",
       "docs/ADAPTIVE.md",
-      "tests/test_adaptive.py"
+      "tests/test_adaptive.py",
+      "asi/taxonomy.py",
+      "configs/knowledge_v1.json",
+      "configs/model_categories_124m_v1.json",
+      "docs/TAXONOMY.md",
+      "tests/test_taxonomy.py",
+      "asi/runtime/tasks.py",
+      "asi/data/classifier_examples.py",
+      "docs/CLASSIFIER_DATA_TASKS.md",
+      "tests/test_task_plans.py",
+      "asi/models/hf_olmoe.py",
+      "asi/models/airllm_olmoe.py",
+      "asi/experiments/public_moe.py",
+      "docs/PUBLIC_MOE.md",
+      "tests/test_public_moe.py",
+      "tests/smoke_airllm_olmoe.py",
+      "asi/models/olmoe_storage.py"
     ],
-    "available": "Planificador con estimación de VRAM y filtro por NLL calibrada; unión de pools sin transferencias por token; cabeza clasificadora con embeddings compartidos y congelados. Componentes opcionales probados con pesos sintéticos.",
-    "pending": "Calibrar calidad y memoria en los checkpoints entrenados; entrenar la cabeza definitiva con ejemplos multietiqueta; selección entre arquitecturas, evaluación independiente y preguntas mixtas."
+    "available": "Planificador con estimación de VRAM y filtro por NLL calibrada; unión de pools sin transferencias por token; cabeza clasificadora con embeddings compartidos y congelados. Componentes opcionales probados con pesos sintéticos. Taxonomía jerárquica compartida, perfiles explícitos de categorías por modelo y cabeza semántica opcional conectada al planificador, con abstención y cobertura parcial. Corpus semilla sintético separado en train/val/test y planificador de subtareas explícitas con dependencias, presupuesto de cambios y paso de respuestas intermedias. Piloto público OLMoE: presupuesto RAM/disco/VRAM, calibración de tres categorías, cabeza integrada y comparación preparada con AirLLM. Adaptadores verificados con pesos aleatorios pequeños; checkpoint público 7B ejecutado en la RTX 3060 con respaldo en disco y caché RAM de 256 MiB. Piloto mínimo de memoria; selección fija produce texto incoherente, sin validación de calidad.",
+    "pending": "Calibrar calidad y memoria en los checkpoints entrenados; entrenar la cabeza definitiva con ejemplos multietiqueta; selección entre arquitecturas, evaluación independiente y preguntas mixtas. Completar/revisar cobertura temática, reunir anotaciones representativas y calibrar el clasificador semántico; reorganización automática de categorías según hardware aún pendiente. Detector semántico de tareas, anotación/corpus representativo y evaluación de calidad/latencia conjunta frente a descomposición."
   },
   {
     "id": "3.1",

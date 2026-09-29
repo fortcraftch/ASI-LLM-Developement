@@ -1,7 +1,89 @@
 # Resultados actuales e interpretación
 
-Son pilotos locales anteriores al refactor. Los originales permanecen en
+Se conservan pilotos históricos y las nuevas comprobaciones indicadas por fecha. Los originales permanecen en
 `results/`, excluido de Git. Reorganizar código no constituye un nuevo experimento.
+
+## Recuperación de pesos con LoRA — 28–29/09/2026
+
+Completada la comparación supervisada v2: routers frente a routers + LoRA de
+salida de expertos, con selecciones de 16 y 32 residentes por capa y 8 activos.
+Ambos recorren las mismas parejas ejemplo/selección durante 144 pasos. Los ajustes
+se comparten por identidad de experto y sobreviven a su expulsión de la caché.
+Dev selecciona el paso 144 del control y el 72 de LoRA.
+
+| Residentes | CE antes | CE routers | CE routers + LoRA |
+| --- | ---: | ---: | ---: |
+| 16 | 7,3730 | 5,8888 | 4,3605 |
+| 32 | 4,9507 | 3,3839 | 2,5748 |
+
+Recuperación **parcial**: con 32, la repetición media de trigramas baja a 0,57%
+frente a 4,61% del control; con 16 sube a 26,19% frente a 22,22%, pese a mejorar
+CE. Persisten errores y respuestas incoherentes. CE usa respuestas de referencia,
+no mide directamente corrección en generación libre. Este piloto tiene 36 ejemplos
+train, 12 dev, 12 test y una semilla; no contiene un nuevo control nativo v2.
+
+Cero cargas de expertos durante todas las generaciones y retorno A→B→A con
+diferencia de pérdida cero para ambas selecciones. Pico GPU de entrenamiento LoRA:
+7,29 GiB en RTX 3060; los adaptadores persistentes cuestan 62,16 MiB adicionales.
+Detalles, límites y comandos en [RECOVERY.md](RECOVERY.md);
+[gráficas](../results/recovery_language_comparison_graphs_v2/index.html).
+
+## Recuperación de routers OLMoE — 28/09/2026
+
+Se ejecutó fine-tuning de 2.097.152 parámetros de routers con expertos y backbone
+congelados, 32 residentes por capa y 8 activos por token. Se prepararon referencias
+del modelo original en disco y se separaron 6 ejemplos train, 3 dev y 3 test.
+El paso 18 de 24 fue seleccionado exclusivamente por dev.
+
+En test, CE baja de 4,2515 a 3,6830 y KL de 1,7479 a 1,5143. El profesor obtiene
+CE 2,9791. Las seis generaciones antes/después mantienen cero cargas de expertos
+y cero transferencias de sus pesos durante la respuesta. **Persisten repeticiones
+e incoherencia**: mejora la predicción medida, pero no se demuestra recuperación
+conversacional. Es un piloto sintético pequeño de una sola semilla.
+
+Protocolo, memoria, artefactos y gráficas: [recuperación](RECOVERY.md).
+
+## OLMoE 7B con poca RAM — 28/09/2026
+
+Checkpoint público real, RTX 3060, respaldo safetensors en disco y límite de
+256 MiB para la caché RAM de expertos. Calibración mínima: un ejemplo por cada
+una de tres categorías. En tres prompts separados se generaron ocho tokens por
+prompt usando ocho expertos fijos por cada una de las 16 capas.
+
+- RSS del proceso muestreado: 1,88–1,91 GiB (no es el pico continuo).
+- VRAM asignada máxima durante generación: aproximadamente 2,40 GiB.
+- Caché RAM de expertos: 252 MiB; el resto del RSS es infraestructura y temporales.
+- Cargas de expertos y lecturas lógicas de sus pesos durante generación: cero.
+- Preparación por prompt: 8,15 / 1,53 / 1,00 segundos; generación: 2,06 / 1,24 / 1,20 segundos.
+
+Fuente: `results/olmoe_disk_fixed.json` y `results/olmoe_disk_calibration.json`.
+Estos tiempos son una sola pasada y no representan un benchmark estable.
+**Las respuestas de esta selección fija son incoherentes.** Se verifica que el
+7B puede ejecutarse sin alojar todos sus pesos en RAM y sin transferencias de
+expertos dentro de la respuesta; no que esta calibración conserve su calidad.
+
+El control `results/olmoe_disk_native.json` conserva el router original con la
+misma caché GPU y 256 MiB de caché RAM. Sus tres continuaciones de ocho tokens
+empiezan de forma coherente: «Two threads can lose an update when they»,
+«Correlation is a statistical measure that indicates» y «Natural selection and
+genetic drift are two fundamental». No son respuestas completas ni una medida
+de exactitud de tareas. RSS muestreado: 1,94 GiB; VRAM asignada: 2,40 GiB.
+Durante cada generación se registran 1.487–1.528 cargas y 17,43–17,91 GiB de
+lecturas lógicas de expertos, no necesariamente I/O físico de SSD.
+
+La comparación guardada en `results/olmoe_disk_comparison.json` mide una media
+de 101,72 s por respuesta nativa y 5,06 s para la fija, incluyendo preparación.
+Solo hay tres prompts, una pasada y ocho tokens; no presentar este contraste
+como una aceleración con calidad equivalente. La selección fija tiene cero
+coincidencias de tokens con el control y texto incoherente.
+
+La continuación del piloto público, con 18 contrastes de residentes, activaciones
+y mezcla, está documentada en [ROUTING_STUDY.md](ROUTING_STUDY.md).
+Su [gráfica](../results/olmoe_routing_summary_v1.png) muestra una reducción de NLL
+al conservar el router y más expertos, pero no una recuperación completa de fluidez.
+El control `results/olmoe_routing_native24.json` confirma continuaciones coherentes
+del original en los mismos tres prompts hasta 24 tokens, a diferencia de las
+variantes restringidas. Los pilotos de fine-tuning posteriores se describen arriba.
 
 ## Entrenamiento por pools — 1.1–1.3
 

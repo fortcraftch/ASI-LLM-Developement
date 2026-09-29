@@ -1,0 +1,27 @@
+{
+  "input": "¿Qué código de Python es más eficiente entre estos ejemplos para listas de enteros? El que lo sea, prográmalo conservando el orden.\n```python\ndef a(xs):\n    out = []\n    for x in xs:\n        if x not in out:\n            out.append(x)\n    return out\n\ndef b(xs):\n    return list(dict.fromkeys(xs))\n```",
+  "relation": "dependent",
+  "tasks": [
+    {
+      "id": "compare",
+      "prompt": "Compara las implementaciones originales: semántica, complejidad temporal y memoria. Elige una para listas de enteros y justifica las condiciones de esa elección; no inventes mediciones.",
+      "categories": [
+        "computer_science_software_engineering"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "implement",
+      "prompt": "Implementa la alternativa elegida en la comparación anterior conservando el orden y añade ejemplos de uso.",
+      "categories": [
+        "computer_science_software_engineering"
+      ],
+      "depends_on": [
+        "compare"
+      ]
+    }
+  ],
+  "schema": 1,
+  "origin": "original_synthetic_case",
+  "human_reviewed": false
+}

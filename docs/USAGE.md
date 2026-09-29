@@ -5,7 +5,39 @@ Ejecutar desde la raíz con el entorno activado. En esta máquina se ha validado
 y verificar CUDA en PyTorch. Clasificador y tokenizer pueden descargarse la
 primera vez. Consultar opciones con `--help` en cualquier comando.
 
+## Organización y archivos históricos
+
+El [README](../README.md) es el índice; [plan.json](plan.json) es la fuente del
+estado y de la correspondencia de archivos con el TFG. [PLAN.md](PLAN.md)
+contiene el protocolo, no una segunda copia de ese registro.
+
+La revisión de estructura conserva `legacy/fineweb.py`, `legacy/hellaswag.py`
+y `legacy/plot_results.py` como referencias históricas: no los importa la CLI.
+Sus sustitutos actuales son `data prepare`, la batería `comparison` y `graphs`,
+respectivamente; no son intercambiables en todos sus formatos o tareas.
+Los dos documentos TFG son versiones del planteamiento, no duplicados eliminables.
+`taxonomy_8.json` alimenta el diseño de 124M; `knowledge_v1.json` es la taxonomía
+general del input. Los manifiestos y recetas congelados conservan su función.
+Los adaptadores `original.py`, `domain.py` y `hf_olmoe.py` corresponden a
+arquitecturas distintas y tampoco son duplicados.
+
+`results/` y `public_models/` son salidas y pesos locales, no código para
+distribuir. Se utiliza un único entorno, localmente `F:\.venv`.
+No borrar resultados o checkpoints por su
+antigüedad: pueden ser evidencia de los experimentos. Las guías especializadas
+se conservan porque describen flujos distintos.
+
 ## Nuevo experimento de 124M
+
+Para modelos públicos, usar la guía independiente [OLMoE/AirLLM](PUBLIC_MOE.md)
+y `python -m asi public-moe --help`. Este adaptador no necesita la arquitectura
+externa del checkpoint personalizado de ocho expertos.
+
+Consultar [ejemplos y subtareas](CLASSIFIER_DATA_TASKS.md) para `data classifier-examples`
+y `tasks`: corpus semilla y planificación con dependencias, sin iniciar entrenamientos automáticamente.
+
+`python -m asi taxonomy` valida y muestra el catálogo temático compartido.
+Consultar [TAXONOMY.md](TAXONOMY.md) para perfiles de modelos y la cabeza semántica multietiqueta.
 
 Para desarrollar inferencia mientras se entrena la LLM: [runtime adaptativo](ADAPTIVE.md).
 `python -m asi adaptive` muestra planificación/ejecución, calibración y entrenamiento

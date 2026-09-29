@@ -229,6 +229,10 @@ def main():
     parser.add_argument('--pool-manifest', type=Path, required=True)
     parser.add_argument('--pools', help='Comma-separated pool names; otherwise use integrated classifier')
     parser.add_argument('--classifier', type=Path)
+    parser.add_argument('--taxonomy', type=Path, help='Shared semantic taxonomy for classifier labels')
+    parser.add_argument('--model-profile', type=Path, help='Checkpoint-bound category-to-pool contract')
+    parser.add_argument('--classifier-threshold', type=float, default=.5)
+    parser.add_argument('--category-depth', type=int)
     parser.add_argument('--prompt', required=True)
     parser.add_argument('--device', default='cuda')
     parser.add_argument('--memory-mib', type=float, help='Cap available free CUDA memory; required on CPU')
@@ -242,6 +246,10 @@ def main():
     args = parser.parse_args()
     if args.output.exists() or args.max_new_tokens < 1:
         parser.error('Use a new output file and positive max-new-tokens')
+    if bool(args.taxonomy) != bool(args.model_profile) or (args.taxonomy and (not args.classifier or args.pools)):
+        parser.error('Semantic routing requires taxonomy, model-profile and classifier, without explicit pools')
+    if not 0 <= args.classifier_threshold <= 1:
+        parser.error('Classifier threshold must be in [0,1]')
     from asi.runtime.generation import load_model, validate_pool_identity, generate
     import tiktoken
     model, metadata = load_model(args.checkpoint)
@@ -251,13 +259,30 @@ def main():
     enc = tiktoken.get_encoding('gpt2')
     classifier_memory = None
     classifier_seconds = None
+    semantic_routing = None
     if args.pools:
         labels = args.pools.split(',')
     elif args.classifier:
         from asi.runtime.classifier import load_head, predict
-        head = load_head(args.classifier, model, names, fingerprint(args.pool_manifest))
-        started = time.perf_counter()
-        labels = predict(model.embed, head, enc.encode(args.prompt), names)
+        if args.taxonomy:
+            from asi.taxonomy import Taxonomy, resolve, digest, validate_profile
+            from asi.runtime.classifier import features
+            taxonomy = Taxonomy.read(args.taxonomy)
+            profile = json.loads(args.model_profile.read_text(encoding='utf-8-sig'))
+            validate_profile(taxonomy, profile)
+            if profile['pool_order'] != names or profile['pool_manifest_sha256'] != digest(manifest) or profile.get('checkpoint_sha256') != fingerprint(args.checkpoint):
+                parser.error('Model profile must be bound to this checkpoint and pool manifest')
+            head = load_head(args.classifier, model, taxonomy.labels, fingerprint(args.pool_manifest), taxonomy.identity)
+            started = time.perf_counter()
+            with torch.no_grad():
+                values = head(features(model.embed, [enc.encode(args.prompt)])).sigmoid()[0].tolist()
+            scores = {name: value for name, value in zip(taxonomy.labels, values) if name in head.trained_labels}
+            semantic_routing = resolve(taxonomy, profile, scores, args.classifier_threshold, args.category_depth)
+            labels = semantic_routing['pools']
+        else:
+            head = load_head(args.classifier, model, names, fingerprint(args.pool_manifest))
+            started = time.perf_counter()
+            labels = predict(model.embed, head, enc.encode(args.prompt), names, args.classifier_threshold)
         classifier_seconds = time.perf_counter() - started
         classifier_memory = module_memory(head)
     else:
@@ -278,9 +303,13 @@ def main():
                 'policy': 'uniform_union_v1'}
     evidence = json.loads(args.quality_report.read_text()) if args.quality_report else None
     layout = memory_layout(model)
-    plan = choose_plan(layout, ids, available, int(args.reserve_mib * 1024**2), int(args.warm_mib * 1024**2),
-                       args.max_nll_delta, evidence, identity)
+    if semantic_routing and semantic_routing['status'] != 'ready':
+        plan = {'status': 'blocked', 'reason': 'Semantic classification is uncertain, partially covered or needs refinement; no topics silently discarded'}
+    else:
+        plan = choose_plan(layout, ids, available, int(args.reserve_mib * 1024**2), int(args.warm_mib * 1024**2),
+                           args.max_nll_delta, evidence, identity)
     result = {'identity': identity, 'labels': labels, 'plan': plan, 'layout': layout,
+              'semantic_routing': semantic_routing,
               'classifier_memory': classifier_memory, 'classifier_seconds': classifier_seconds, 'executed': False}
     if args.execute and plan['status'] == 'ready':
         cache = (WarmExpertCache(args.device, len(ids), plan['warm_bytes']) if plan['mode'] == 'int8'

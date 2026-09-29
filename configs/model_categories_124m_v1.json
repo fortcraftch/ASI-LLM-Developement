@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "model_id": "domain_124m",
+  "taxonomy": {
+    "id": "asi-human-knowledge",
+    "version": "1.0.0",
+    "sha256": "4ce4822718eb2dca0236fd07743399b8e925280a958bcb079f9ca70d77e94972"
+  },
+  "checkpoint_sha256": null,
+  "pool_manifest_sha256": "b2fc9bd119ae93c2ba15c63beff14d17d050e298df7c621906f2785efc9b9a5e",
+  "pool_order": [
+    "technology",
+    "math_physics",
+    "biology",
+    "health",
+    "environment",
+    "society_economy",
+    "history_arts",
+    "education_language"
+  ],
+  "bindings": {
+    "computer_science_software_engineering": {
+      "pools": [
+        "technology"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "machine_learning_ai": {
+      "pools": [
+        "technology"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "engineering_technology": {
+      "pools": [
+        "technology"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "mathematics_statistics": {
+      "pools": [
+        "math_physics"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "physical_sciences": {
+      "pools": [
+        "math_physics"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "life_sciences_biology": {
+      "pools": [
+        "biology"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "medicine_health": {
+      "pools": [
+        "health"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "environmental_science_energy": {
+      "pools": [
+        "environment"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "social_sciences": {
+      "pools": [
+        "society_economy"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "law_government": {
+      "pools": [
+        "society_economy"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "business_economics": {
+      "pools": [
+        "society_economy"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "personal_finance_practical_life": {
+      "pools": [
+        "society_economy"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "history_geography": {
+      "pools": [
+        "history_arts"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "arts_humanities": {
+      "pools": [
+        "history_arts"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "philosophy_ethics": {
+      "pools": [
+        "history_arts"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "education_pedagogy": {
+      "pools": [
+        "education_language"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    },
+    "language_writing": {
+      "pools": [
+        "education_language"
+      ],
+      "evidence": "training_assignment_not_quality_validation"
+    }
+  },
+  "status": "planned_unbound",
+  "note": "Assignment describes routing availability, not demonstrated knowledge. Hardware residency is a separate decision."
+}

@@ -1,10 +1,29 @@
 import copy
 import unittest
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 from asi.analysis.plots import event_metrics, memory_metrics, route_changes
+from asi.analysis.plots import build
 
 
 class PlotMetricsTests(unittest.TestCase):
+    def test_empty_manifest_is_reported_without_modification(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            results = root / 'results'
+            results.mkdir()
+            manifest = results / 'manifest.json'
+            manifest.write_bytes(b'')
+            output = root / 'gallery'
+            with patch('asi.analysis.plots.draw_overview'), patch('asi.analysis.plots.ROOT', root):
+                build(results, output)
+            sources = json.loads((output / 'fuentes.json').read_text(encoding='utf-8'))
+            self.assertIn('inválido; sin resultados', json.dumps(sources, ensure_ascii=False))
+            self.assertEqual(manifest.read_bytes(), b'')
+
     def event(self, pair, phase='decode', misses=0, seconds=.1):
         return {'phase':phase,'seconds':seconds,'routes':{'1':[pair]},
                 'cache_delta':{'misses':misses,'evictions':misses,'host_to_device_bytes':misses*1024**2}}

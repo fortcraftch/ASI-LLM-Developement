@@ -5,6 +5,24 @@ import sys
 
 
 COMMANDS = {
+    'train-bank': ('asi.experiments.train_bank', 'main', 'Entrenar y reanudar el banco de especialistas densos independientes'),
+    'mask-intervention-report': ('asi.analysis.mask_intervention_report', 'main', 'Graficar intervenciones de pools y capas libres'),
+    'mask-intervention': ('asi.experiments.mask_intervention', 'main', 'Recalibrar pools y comparar capas libres con controles de memoria'),
+    'routing-paired': ('asi.experiments.routing_paired', 'main', 'Comparar routing sobre tokens idénticos antes y después de recuperación'),
+    'routing-paired-report': ('asi.analysis.routing_paired_report', 'main', 'Graficar trazas emparejadas sin cargar modelos'),
+    'recovery-pilot-report': ('asi.analysis.recovery_pilot_report', 'main', 'Analizar el piloto completado y sus mapas opcionales t-SNE'),
+    'local-generation': ('asi.experiments.local_generation', 'main', 'Comparar memoria y generación de GPT-2, DeepSeek y ASI con el mismo protocolo'),
+    'local-generation-report': ('asi.analysis.local_generation_report', 'main', 'Graficar la comparación de generación de modelos locales'),
+    'recovery-hardware': ('asi.analysis.recovery_hardware', 'main', 'Calibrar perfiles OLMoE con calidad dev y memoria de inferencia medida'),
+    'deepseek-eval': ('asi.experiments.native_eval', 'main', 'Evaluar el DeepSeek original con protocolo GPT-2 y auditar su routing libre'),
+    'capacity-compare': ('asi.analysis.capacity_compare', 'main', 'Comparar semillas pareadas y evolución del routing en el piloto de capacidad'),
+    'capacity-pilot': ('asi.experiments.capacity_pilot', 'main', 'Piloto pareado de capacidad con ventanas fijas y telemetría de expertos'),
+    'conversation-compare': ('asi.experiments.conversation_compare', 'main', 'Comparar GPT-2 y modelo categorizado con el mismo formato y muestreo'),
+    'capacity-study': ('asi.experiments.capacity_study', 'main', 'Preparar controles de capacidad y granularidad sin entrenar modelos'),
+    'domain-sft': ('asi.experiments.domain_sft', 'main', 'Fine-tuning OASST del modelo categorizado manteniendo sus pools'),
+    'checkpoint-report': ('asi.analysis.checkpoint_report', 'main', 'Resumir y graficar benchmarks del checkpoint y GPT-2'),
+    'teacher-audit': ('asi.experiments.teacher_audit', 'main', 'Verificar referencias del profesor tras una interrupción'),
+    'checkpoint-eval': ('asi.experiments.checkpoint_eval', 'main', 'Comparar checkpoint por pools con los benchmarks del proyecto GPT-2'),
     'recovery-study': ('asi.experiments.recovery_study', 'main', 'Preparar comparación multisemilla y revisión ciega de recuperación'),
     'recovery': ('asi.experiments.recovery', 'main', 'Calibrar selecciones y ajustar routers o expertos LoRA con memoria limitada'),
     'public-moe': ('asi.experiments.public_moe', 'main', 'Preparar y comparar el MoE público OLMoE con AirLLM'),
@@ -12,6 +30,7 @@ COMMANDS = {
     'tasks': ('asi.runtime.tasks', 'main', 'Proponer y planificar subtareas con dependencias y límite de cambios de pools'),
     'taxonomy': ('asi.taxonomy', 'main', 'Validar taxonomía común, declarar categorías del modelo y resolver etiquetas'),
     'adaptive': {
+        'budgets': ('asi.runtime.adaptive', 'budgets_main', 'Explorar presupuestos GPU con calidad calibrada e identidad de modelo verificada'),
         'run': ('asi.runtime.adaptive', 'main', 'Planificar y ejecutar pools simultáneos con memoria limitada'),
         'evaluate': ('asi.experiments.adaptive', 'main', 'Calibrar degradación de mezclas y expertos INT8'),
         'train-classifier': ('asi.runtime.classifier', 'main', 'Entrenar una cabeza multietiqueta con embeddings congelados'),
@@ -36,6 +55,7 @@ COMMANDS = {
         'calibrate': ('asi.experiments.posthoc', 'main', 'Clasificar y comparar expertos ya entrenados'),
     },
     'chat': {
+        'deepseek': ('asi.experiments.local_generation', 'chat_main', 'Conversar con el DeepSeek original y routing libre'),
         'router': ('asi.runtime.ensemble', 'main', 'Elegir un modelo denso independiente por tema'),
         'domain': ('asi.runtime.generation', 'domain_main', 'Conversar con el modelo entrenado por pools'),
         'existing': ('asi.runtime.generation', 'existing_main', 'Conversar con el modelo original categorizado'),

@@ -49,20 +49,38 @@ def inference_context(device):
     return torch.autocast("cuda", dtype=torch.bfloat16) if torch.device(device).type == "cuda" else nullcontext()
 
 
+def domain_chat_context(enc, history, prompt, chat_format, token_budget):
+    """Build model context separately from the user-only classifier input."""
+    turns = [*history, ('user', prompt)]
+    route_text = '\n'.join(text for role, text in turns if role == 'user')
+    if chat_format == 'oasst':
+        context = ''.join('<|' + role + '|>\n' + text +
+                          ('\n' if role == 'user' else '<|endoftext|>')
+                          for role, text in turns) + '<|assistant|>\n'
+    else:
+        context = '\n'.join(text for _, text in turns)
+    ids = enc.encode(context, allowed_special={'<|endoftext|>'})
+    return enc.decode(ids[-token_budget:]), route_text
+
+
 @torch.no_grad()
-def generate(model, enc, prompt: str, device: str, max_new_tokens: int, temperature: float, top_k: int):
-    prompt_ids = enc.encode(prompt)
+def generate(model, enc, prompt: str, device: str, max_new_tokens: int, temperature: float, top_k: int,
+             return_info: bool = False, incremental: bool = True):
+    prompt_ids = enc.encode(prompt, allowed_special={'<|endoftext|>'})
     if not prompt_ids:
-        return ""
+        return {'text':'','stop_reason':'empty_prompt','generated_tokens':0} if return_info else ""
     if len(prompt_ids) >= model.config.block_size:
         prompt_ids = prompt_ids[-(model.config.block_size - 1):]
 
     idx = torch.tensor([prompt_ids], dtype=torch.long, device=device)
     with inference_context(device):
-        logits, _ = model(idx, start_pos=0)
+        output = model(idx, start_pos=0) if incremental else model(idx)
+        logits = output[0] if isinstance(output,tuple) else output
     next_logits = logits[:, -1, :]
 
     generated = list(prompt_ids)
+    stop_reason='max_new_tokens' if len(prompt_ids)+max_new_tokens<=model.config.block_size else 'context_limit'
+    eos_probability=None;filtered_eos_probability=None
     for pos in range(len(prompt_ids), min(model.config.block_size, len(prompt_ids) + max_new_tokens)):
         logits = next_logits / max(temperature, 1e-5)
         logits[:, enc.n_vocab:] = float("-inf")
@@ -76,13 +94,25 @@ def generate(model, enc, prompt: str, device: str, max_new_tokens: int, temperat
         token_id = int(token.item())
         generated.append(token_id)
         if token_id == enc.eot_token:
+            stop_reason='eos'
             break
         if pos + 1 == min(model.config.block_size, len(prompt_ids) + max_new_tokens):
             break
         with inference_context(device):
-            step_logits, _ = model(token, start_pos=pos)
+            if incremental:
+                output = model(token, start_pos=pos)
+            else:
+                output = model(torch.tensor([generated],dtype=torch.long,device=device))
+            step_logits = output[0] if isinstance(output,tuple) else output
         next_logits = step_logits[:, -1, :]
-
+    if return_info:
+        if len(generated)>len(prompt_ids):
+            eos_probability=float(next_logits[:,:enc.n_vocab].float().softmax(-1)[0,enc.eot_token])
+            filtered_eos_probability=float(probs[0,enc.eot_token])
+        return {'text':enc.decode(generated),'stop_reason':stop_reason,
+                'generated_tokens':len(generated)-len(prompt_ids),
+                'eos_probability_last_step':eos_probability,
+                'eos_probability_after_sampling_filter':filtered_eos_probability}
     return enc.decode(generated)
 
 
@@ -103,11 +133,26 @@ def domain_main():
     p.add_argument("--max-pinned-mib", type=int, default=512)
     p.add_argument("--trace-dir", type=Path)
     p.add_argument("--session-context", action="store_true", help="Include prior turns and re-prefill after routing changes")
+    p.add_argument('--chat-format', choices=['auto','completion','oasst'], default='auto',
+                   help='auto uses OASST for domain SFT checkpoints')
+    p.add_argument('--diagnostics',action='store_true',help='Show stop reason and final-step EOS probabilities')
+    p.add_argument('--seed',type=int,default=1337)
     args = p.parse_args()
+    torch.manual_seed(args.seed)
+    if args.max_new_tokens < 1 or args.temperature < 0 or args.top_k < 0:
+        p.error('Invalid generation settings')
 
     pool_names, pool_to_id = load_manifest(args.pool_manifest)
     model, ckpt = load_model(args.checkpoint)
     validate_pool_identity(model, ckpt, pool_names)
+    if args.max_new_tokens >= model.config.block_size:
+        p.error('max-new-tokens must be smaller than the model context')
+    chat_format = args.chat_format
+    if chat_format == 'auto':
+        chat_format = 'oasst' if ckpt.get('experiment') == 'domain_oasst_sft' else 'completion'
+    for layer in model.layers:
+        if hasattr(layer.ffn, 'moe_backend'):
+            layer.ffn.moe_backend = 'bmm'
     if model.config.routing_mode == 'uniform_pool':
         args.max_pools = 1
     router = DomainSessionRouter(
@@ -128,8 +173,8 @@ def domain_main():
     print("Pool order:")
     for i, name in enumerate(pool_names):
         print(f"  {i:02d} -> {name}")
-    print("Type 'exit' to quit.")
-    session_text = ""
+    print(f"Format: {chat_format}. Type '/reset' to clear history, 'exit' to quit.")
+    history = []
     turn = 0
 
     while True:
@@ -140,12 +185,17 @@ def domain_main():
             break
         if prompt.lower() in {"exit", "quit"}:
             break
+        if prompt.lower() == '/reset':
+            history.clear()
+            router.previous_pools.clear()
+            print('Conversation cleared.')
+            continue
         if not prompt:
             continue
 
-        context = (session_text + "\n" + prompt).strip() if args.session_context else prompt
-        context = enc.decode(enc.encode(context)[-(model.config.block_size - 1):])
-        route = router.route(context)
+        context, route_text = domain_chat_context(enc, history if args.session_context else [], prompt,
+                                                  chat_format, model.config.block_size - args.max_new_tokens)
+        route = router.route(route_text)
         requested_ids = [pool_to_id[name] for name in route.ranked_pools]
         hot_ids = cache.prepare(model, requested_ids, requested_ids)
         model.set_active_pools(requested_ids)
@@ -156,17 +206,22 @@ def domain_main():
 
         trace = RoutingTrace(model, pool_names) if args.trace_dir else None
         with trace if trace else nullcontext():
-            text = generate(model, enc, context, args.device, args.max_new_tokens,
-                            args.temperature, args.top_k)
+            result = generate(model, enc, context, args.device, args.max_new_tokens,
+                            args.temperature, args.top_k,return_info=args.diagnostics)
+            text=result['text'] if args.diagnostics else result
         if trace:
             args.trace_dir.mkdir(parents=True, exist_ok=True)
             trace.write(args.trace_dir / f"turn_{turn:04d}_routes.json")
             (args.trace_dir / f"turn_{turn:04d}_memory.json").write_text(
                 json.dumps({"cache": cache.snapshot(), "memory": cache.inventory()}, indent=2), encoding="utf-8")
         print("Memory:", {k: v for k, v in cache.inventory().items() if k != "experts"})
-        session_text = text
+        response = text[len(context):].split('<|endoftext|>',1)[0]
+        if args.session_context:
+            history.extend([('user',prompt),('assistant',response)])
         turn += 1
-        print("Model>", text)
+        print("Model>", response)
+        if args.diagnostics:
+            print('Generation:',{k:v for k,v in result.items() if k!='text'})
 
 
 

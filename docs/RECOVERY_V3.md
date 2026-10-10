@@ -1,5 +1,70 @@
 # Recuperación ampliada: datos públicos, profesor y tres ajustes
 
+**Actualización 07/10/2026:** terminó el piloto de 36 referencias verificables,
+los tres ajustes con 32 y los tres calendarios 32→16. Se conservaron los archivos
+antiguos. La pérdida mejora, pero la revisión con hasta 256 tokens encuentra
+errores de tarea y repeticiones; no se declara recuperación general. Se mantiene
+pospuesta la ampliación a 4.093 referencias. Resultados, gráficas y calibración
+de memoria están en [CONTINUACION_9_13.md](CONTINUACION_9_13.md).
+El estado descrito a continuación al 05/10 es histórico, previo a esta ejecución.
+
+La comparación de textos completos del original y las recuperaciones de 32 y 16,
+con tiempos, memoria y transferencias, se reproduce con
+[RECOVERY_GENERATION.md](RECOVERY_GENERATION.md).
+El [análisis de las repeticiones](RECOVERY_REPETITION_ANALYSIS.md) separa los
+bucles observados de las hipótesis sobre routing, decodificación y entrenamiento.
+
+## Explicación sencilla y estado al 05/10/2026
+
+El profesor es el **OLMoE original**, con su selección nativa entre todos los expertos.
+El alumno parte de ese mismo modelo, pero solo puede elegir dentro de 32 expertos
+residentes por capa (activa ocho por token). No entrenamos varios profesores nuevos:
+guardamos referencias del original para no tener que cargarlo junto al alumno.
+
+Para cada ejemplo, el profesor calcula probabilidades de los próximos tokens.
+Los archivos `.pt` guardan esas distribuciones y sus metadatos; no son checkpoints
+de miles de modelos distintos. El alumno combina dos objetivos: aprender la respuesta
+de referencia y acercarse a la distribución del profesor bajo la restricción.
+Esta transferencia de comportamiento se llama destilación.
+
+Compararemos, con los mismos ejemplos, ajustar solo el router, solo LoRA de los
+expertos, o ambos. LoRA adapta matrices de los expertos con menos pesos entrenables;
+esta etapa no actualiza todas sus matrices completas. Después evaluaremos respuestas
+y memoria frente al original, y más adelante la transición de 32 a 16 residentes.
+
+Estado local comprobado: siguen existiendo 424 archivos del profesor de 4093 previstos;
+el plan reconstruido solo tiene `plan.json`, sin una nueva ejecución teacher. El
+manifiesto antiguo está dañado y sus shards no contienen identidad verificable del
+profesor. Las correcciones de guardado atómico y procedencia están implementadas,
+pero el conjunto completo y la comparación V3 multisemilla **no están terminados**.
+No confundir este trabajo con el SFT OASST de 200 pasos del modelo categorizado de
+124M: ese ajuste sí se ha ejecutado y no utiliza al profesor OLMoE.
+
+## Auditoría tras la interrupción — 04/10/2026
+
+`results/recovery_study_v3/teacher` contiene **424 de 4.093 referencias (10,36%)**, 7.074.131.776 bytes (6,59 GiB). Las 424 superan la comprobación de texto, tokens, EOS, dimensiones, valores finitos y normalización. El manifiesto JSON contiene bytes nulos y no es legible. Como los archivos antiguos no incluían la identidad del profesor, esta auditoría verifica su contenido estructural, **no permite certificar su procedencia ni reanudar de forma estrictamente verificable**. No se han borrado ni modificado.
+
+Informe: `results/recovery_study_v3/teacher_audit_20261004.json`. Para repetir la auditoría con un archivo de salida nuevo:
+
+```bash
+python -m asi teacher-audit --teacher-dir results/recovery_study_v3/teacher --examples results/recovery_corpus_v3/corpus.json --model-dir public_models/olmoe --output results/teacher_audit_new.json
+```
+
+Un manifiesto histórico intacto permitiría verificar los hashes y aprovechar las referencias. Sin él, la opción rigurosa es regenerarlas o recalcular el profesor para verificar cada archivo; una comprobación de unas pocas muestras no autentica los 424. No se ha reconstruido un manifiesto ficticio.
+
+Está preparado un plan equivalente en una carpeta nueva, preservando todo lo anterior:
+
+```bash
+python -m asi recovery-study run --plan results/recovery_study_v3_rebuild_20261004/plan.json --stage teacher
+python -m asi recovery-study run --plan results/recovery_study_v3_rebuild_20261004/plan.json --stage native
+```
+
+Después, ejecutar `router_1337`, `expert-lora_1337` y `router-expert-lora_1337` sobre ese mismo plan, y las otras dos semillas cuando se compruebe el proceso. El plan conserva 32 residentes y top-8. La regeneración larga no se ha lanzado durante la evaluación del modelo pequeño. El total estimado de referencias sigue siendo unos 66 GiB; al preservar los archivos antiguos hay que añadir sus 6,59 GiB.
+
+Los nuevos shards incluyen `teacher_identity`. Shards y manifiesto se guardan mediante temporal, flush/fsync y reemplazo atómico. Esto reduce el riesgo de corrupción por interrupción; no sustituye copias de seguridad. Al reanudar la etapa teacher desde un manifiesto válido, su informe incompleto se conserva en `teacher_report.attemptNNNN` y se crea un informe nuevo en la ruta del plan. El entrenamiento de recuperación aún no tiene reanudación de optimizador como `asi train`.
+
+## Verificación histórica del 29/09
+
 Estado verificado el 29/09/2026: corpus construido, calibración terminada con 24
 ejemplos train y cuatro referencias reales del profesor guardadas/verificadas.
 Estas cuatro referencias ocuparon 74,47 MiB y su pasada agrupada tardó 70,71 s

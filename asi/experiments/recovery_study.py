@@ -6,23 +6,184 @@ from pathlib import Path
 import subprocess
 import sys
 import statistics
+import copy
+import time
 
 from asi.taxonomy import digest
 
 
+def run_pilot(root, wait_seconds=0):
+    """Run an explicit local pilot queue after its subset references are ready."""
+    if wait_seconds<0: raise ValueError('Negative wait budget')
+    jobs=json.loads((root/'jobs.json').read_text(encoding='utf8'))
+    if len(jobs)!=4 or [j['argv'][:2] for j in jobs]!=[['recovery','native']]+[['recovery','train']]*3:
+        raise ValueError('Pilot requires native then three training jobs')
+    reports=[]
+    for job in jobs:
+        argv=job['argv']
+        if '--example-ids' not in argv: raise ValueError('Explicit pilot IDs required')
+        output=Path(argv[argv.index('--output')+1])
+        if output.exists(): raise ValueError('Pilot output already exists: '+str(output))
+        reports.append(output/'report.json')
+    deadline=time.monotonic()+wait_seconds
+    while True:
+        path=root/'prepare'/'report.json'
+        prep=json.loads(path.read_text(encoding='utf8')) if path.exists() else {}
+        if prep.get('subset_completed'): break
+        if time.monotonic()>=deadline: raise ValueError('Pilot preparation not complete; inspect prepare.log')
+        time.sleep(min(10,max(0,deadline-time.monotonic())))
+    expected=json.loads((root/'ids.json').read_text(encoding='utf8'))
+    if prep.get('identity',{}).get('evaluation_subset')!=digest(sorted(expected)):
+        raise ValueError('Prepared subset identity differs')
+    for job in jobs:
+        argv=job['argv']
+        if json.loads(Path(argv[argv.index('--example-ids')+1]).read_text(encoding='utf8'))!=expected:
+            raise ValueError('Job subset differs from prepared IDs')
+        print('Pilot stage:',job['name'],flush=True)
+        with (root/(job['name']+'.log')).open('x',encoding='utf8') as log:
+            subprocess.run([sys.executable,'-u','-m','asi',*argv],stdout=log,stderr=subprocess.STDOUT,check=True)
+    result=summarize(reports)
+    threshold=json.loads((root/'protocol.json').read_text(encoding='utf8')).get('dev_screen',{}).get('threshold',.95) if (root/'protocol.json').exists() else .95
+    result['pilot_screen']={'threshold':threshold,'based_on':'worst relative dev objective, including step zero',
+                            'manual_review_required':True,'models':[]}
+    for path in reports[1:]:
+        r=json.loads(path.read_text(encoding='utf8'))
+        ratio=r.get('dev_best_worst_group_ratio')
+        result['pilot_screen']['models'].append({'adaptation':r['settings']['adaptation'],
+            'dev_ratio':ratio,'passes_screen':ratio is not None and ratio<=threshold})
+    (root/'comparison.json').write_text(json.dumps(result,indent=2),encoding='utf8')
+    corpus=json.loads(Path(jobs[0]['argv'][jobs[0]['argv'].index('--examples')+1]).read_text(encoding='utf8'))
+    export_review(corpus,reports,root/'review')
+    print('Pilot complete:',root/'comparison.json',flush=True)
+
+
+def curriculum_plan(source, output):
+    """Extend a frozen plan without moving its teacher or previous run outputs."""
+    plan=copy.deepcopy(source)
+    if 'curriculum_groups' in plan:
+        raise ValueError('Plan already contains curriculum jobs')
+    prerequisites=[j['name'] for j in plan['jobs'] if j['argv'][1]=='train']
+    if not prerequisites:
+        raise ValueError('Complete 32-resident protocol required')
+    groups=[]
+    for seed in plan['seeds']:
+        template=next(j for j in source['jobs'] if j['name']==f'router-expert-lora_{seed}')
+        base=template['argv']
+        epoch_steps=int(base[base.index('--steps')+1])//plan['epochs']
+        group=[]
+        for policy in ('direct16','mixed','gradual'):
+            name=f'curriculum_{policy}_{seed}'
+            argv=list(base)
+            argv[argv.index('--steps')+1]=str(epoch_steps*3)
+            pos=argv.index('--mask-sizes')
+            argv[pos+1:pos+2]=['32','16']
+            argv[-1]=(output/name).as_posix()
+            argv+=['--paired-example-order']
+            if policy=='direct16': argv+=['--train-mask','16']
+            if policy=='gradual': argv+=['--curriculum-32-steps',str(epoch_steps)]
+            plan['jobs'].append({'name':name,'dependencies':['teacher','native',*prerequisites], 'argv':argv})
+            group.append(name)
+        groups.append(group)
+    plan['curriculum_groups']=groups
+    plan['parent_plan_identity']=digest(source)
+    plan['curriculum_contract']={
+        'initialization':'Each run starts from the original OLMoE, not the selected step-11 adapter.',
+        'controls':'Same examples/order/steps/seed, both masks evaluated, same union of LoRA parameters.',
+        'treatment':'Direct16 versus alternating32/16 versus 32 warmup then alternating32/16.',
+        'limitations':'Different mask exposure is intentional. Gradual does not end with exclusively16. No test-based selection of policy.'}
+    return plan
+
+
+def plan_status(plan):
+    rows=[]
+    for job in plan['jobs']:
+        argv=job['argv']; output=Path(argv[argv.index('--output')+1]); path=output/'report.json'
+        row={'name':job['name'],'output':str(output),'status':'pending'}
+        if path.exists():
+            try:
+                report=json.loads(path.read_text(encoding='utf8'))
+                row['status']='completed' if report.get('completed') else 'incomplete'
+                row['recorded_steps']=len(report.get('steps',[]))
+            except (OSError,ValueError): row['status']='invalid_report'
+        rows.append(row)
+    states={r['name']:r['status'] for r in rows}
+    for job,row in zip(plan['jobs'],rows):
+        row['waiting_for']=[d for d in job['dependencies'] if states.get(d)!='completed']
+    teacher=next((j for j in plan['jobs'] if j['name']=='teacher'),None)
+    progress=None
+    if teacher:
+        argv=teacher['argv']; manifest=Path(argv[argv.index('--teacher-dir')+1])/'manifest.json'
+        if manifest.exists():
+            try:
+                data=json.loads(manifest.read_text(encoding='utf8'))
+                progress={'entries':len(data.get('entries',[])),'completed':data.get('completed',False),
+                          'note':'Manifest progress only; use teacher-audit to verify shards.'}
+            except (OSError,ValueError): progress={'error':'Invalid manifest'}
+    return {'jobs':rows,'teacher':progress}
+
+
+def summarize_curriculum(paths):
+    reports=[json.loads(p.read_text(encoding='utf8')) for p in paths]
+    if not reports or any(not r.get('completed') or r.get('action')!='train' for r in reports):
+        raise ValueError('Completed curriculum training reports required')
+    groups={}
+    for path,r in zip(paths,reports):
+        s=r['settings']
+        if not s.get('paired_example_order') or set(s.get('mask_sizes',[]))!={16,32}:
+            raise ValueError('Paired examples and both evaluation masks required')
+        policy='direct16' if s.get('train_mask')=='16' else 'gradual' if s.get('curriculum_32_steps',0)>0 else 'mixed'
+        if s.get('train_mask') not in (None,'16'): raise ValueError('Unsupported fixed mask')
+        group=groups.setdefault(s['seed'],{})
+        if policy in group: raise ValueError('Duplicate policy/seed')
+        group[policy]=(path,r)
+    rows=[]
+    invariant=('steps','lr','alpha','active','experts','mask_sizes','max_length','new_tokens',
+               'generation_per_category','rank','adaptation','teacher_eos','supervised')
+    anchor=reports[0]
+    for r in reports:
+        if r['identity']!=anchor['identity'] or any(r['settings'].get(k)!=anchor['settings'].get(k) for k in invariant):
+            raise ValueError('Cross-seed source or protocol differs')
+    for seed,group in groups.items():
+        if set(group)!={'direct16','mixed','gradual'}: raise ValueError('Each seed needs all three policies')
+        first=group['mixed'][1]
+        for policy,(path,r) in group.items():
+            if r['identity']!=first['identity'] or not r.get('teacher_manifest_sha256') or r['teacher_manifest_sha256']!=first.get('teacher_manifest_sha256'):
+                raise ValueError('Source, corpus, masks or teacher differ')
+            if any(r['settings'].get(k)!=first['settings'].get(k) for k in invariant):
+                raise ValueError('Training/evaluation protocol differs')
+            if r['trainable_parameters']!=first['trainable_parameters']:
+                raise ValueError('Trainable parameter budgets differ')
+            if len(r['steps'])!=r['settings']['steps'] or [s['id'] for s in r['steps']]!=[s['id'] for s in first['steps']]:
+                raise ValueError('Training examples/order differ')
+            for stage in ('test_before','test_after'):
+                if [(v['id'],v['mask']) for v in r[stage]['records']]!=[(v['id'],v['mask']) for v in first[stage]['records']]:
+                    raise ValueError('Evaluation examples differ')
+            if any(abs(a['ce']-b['ce'])>1e-5 for a,b in zip(r['test_before']['records'],first['test_before']['records'])):
+                raise ValueError('Initial baselines differ')
+            if [(v['id'],v['stage'],v['mask']) for v in r.get('generations',[])]!=[(v['id'],v['stage'],v['mask']) for v in first.get('generations',[])]:
+                raise ValueError('Generated evaluation examples differ')
+            for mask in ('32','16'):
+                values=[v['ce'] for v in r['test_after']['records'] if v['mask']==mask]
+                if not values: raise ValueError('Missing evaluation mask')
+                rows.append({'seed':seed,'policy':policy,'mask':mask,'ce':statistics.mean(values),
+                             'selected_step':r['selected_step'],'report':str(path)})
+    return {'kind':'paired_residency_curriculum','completed':True,'rows':rows,
+            'limitations':'CE is not conversation quality. Review complete generations blindly. Exposure to masks differs intentionally; results do not establish hardware feasibility on another device.'}
+
+
 def make_plan(corpus, examples, study, output, seeds, epochs, model_dir):
     train=sum(r['split']=='train' for r in corpus['examples'])
-    common=['--examples',str(examples),'--study',str(study),'--model-dir',str(model_dir),
+    common=['--examples',examples.as_posix(),'--study',study.as_posix(),'--model-dir',model_dir.as_posix(),
             '--max-length','384','--new-tokens','256','--generation-per-category','60','--reference-batch-size','4',
             '--ram-gib','32','--expert-ram-gib','16',
-            '--teacher-eos','--teacher-dir',str(output/'teacher')]
+            '--teacher-eos','--teacher-dir',(output/'teacher').as_posix()]
     jobs=[]
     def add(name, action, extra, dependencies):
         jobs.append({'name':name,'dependencies':dependencies,
-                     'argv':['recovery',action,*common,*extra,'--output',str(output/name)]})
+                     'argv':['recovery',action,*common,*extra,'--output',(output/name).as_posix()]})
     add('teacher','prepare',[],[])
     # Teacher references live in a separate directory from the preparation report.
-    jobs[-1]['argv'][-1]=str(output/'teacher_report')
+    jobs[-1]['argv'][-1]=(output/'teacher_report').as_posix()
     add('native','native',[],[])
     training=[]
     for seed in seeds:
@@ -31,8 +192,8 @@ def make_plan(corpus, examples, study, output, seeds, epochs, model_dir):
             add(name,'train',['--adaptation',adaptation,'--rank','8','--mask-sizes','32',
                              '--seed',str(seed),'--steps',str(train*epochs),'--eval-interval','500'],['teacher'])
             training.append(name)
-    return {'schema':3,'corpus_identity':digest(corpus),'examples':str(examples),
-            'study':str(study),'jobs':jobs,'seeds':seeds,'epochs':epochs,
+    return {'schema':3,'corpus_identity':digest(corpus),'examples':examples.as_posix(),
+            'study':study.as_posix(),'jobs':jobs,'seeds':seeds,'epochs':epochs,
             'teacher_dense_fp32_bytes':corpus.get('teacher_dense_fp32_bytes'),
             'comparison_groups':[[f'{a}_{seed}' for a in ('router','expert-lora','router-expert-lora')] for seed in seeds],
             'deferred_curriculum':{'reason':'Separate preregistered follow-up after 32-resident study; do not pick settings using test.',
@@ -95,14 +256,40 @@ def run_job(plan, name):
         raise ValueError('Frozen calibration changed or is incomplete; regenerate the plan before starting runs')
     for dependency in job['dependencies']:
         previous=next(j for j in plan['jobs'] if j['name']==dependency)
-        report=json.loads((Path(previous['argv'][-1])/'report.json').read_text())
+        previous_args=previous['argv']
+        report=json.loads((Path(previous_args[previous_args.index('--output')+1])/'report.json').read_text())
         if not report.get('completed'): raise ValueError('Incomplete dependency: '+dependency)
     argv=list(job['argv'])
     if name=='teacher':
         directory=Path(argv[argv.index('--teacher-dir')+1])
-        if (directory/'manifest.json').exists(): argv.append('--resume-teacher')
+        if (directory/'manifest.json').exists():
+            # Reject corruption before changing any prior run directory.
+            manifest=json.loads((directory/'manifest.json').read_text(encoding='utf-8'))
+            if manifest['identity']['corpus']!=plan['corpus_identity']:
+                raise ValueError('Teacher corpus differs')
+            output=Path(argv[argv.index('--output')+1])
+            archive_partial_teacher_report(output)
+            argv.append('--resume-teacher')
     # Never skip or overwrite a previous run silently. CLI requires fresh output.
     subprocess.run([sys.executable,'-u','-m','asi',*argv],check=True)
+
+
+def archive_partial_teacher_report(output):
+    """Preserve interrupted reports while retaining the plan's canonical output."""
+    if not output.exists(): return
+    report=json.loads((output/'report.json').read_text(encoding='utf-8'))
+    if report.get('action')!='prepare' or report.get('completed'):
+        raise ValueError('Refusing to move a completed or unrelated report')
+    parent=output.resolve().parent
+    for attempt in range(1,10000):
+        destination=output.with_name(output.name+f'.attempt{attempt:04d}')
+        if destination.exists(): continue
+        if output.resolve().parent!=parent or destination.resolve().parent!=parent:
+            raise ValueError('Report archive escaped its parent')
+        output.rename(destination)
+        print('Preserved interrupted teacher report:',destination,flush=True)
+        return
+    raise ValueError('Too many archived teacher attempts')
 
 
 def export_review(corpus, reports, output):
@@ -135,7 +322,7 @@ def export_review(corpus, reports, output):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('action',choices=['plan','run','review','summarize'])
+    p.add_argument('action',choices=['plan','run','review','summarize','status','curriculum','curriculum-summary','pilot-run'])
     p.add_argument('--examples',type=Path,default=Path('results/recovery_corpus_v3/corpus.json'))
     p.add_argument('--study',type=Path,default=Path('results/recovery_calibration_batched_v3/report.json'))
     p.add_argument('--model-dir',type=Path,default=Path('public_models/olmoe'))
@@ -145,15 +332,30 @@ def main():
     p.add_argument('--plan',type=Path)
     p.add_argument('--stage')
     p.add_argument('--reports',type=Path,nargs='+')
+    p.add_argument('--wait-seconds',type=int,default=0,help='Maximum wait for an already running pilot preparation')
     args=p.parse_args()
+    if args.action=='pilot-run':
+        if not args.output: p.error('Provide pilot root as --output')
+        run_pilot(args.output,args.wait_seconds)
+        return
+    if args.action=='status':
+        if not args.plan: p.error('Provide --plan')
+        print(json.dumps(plan_status(json.loads(args.plan.read_text(encoding='utf8'))),indent=2))
+        return
+    if args.action=='curriculum':
+        if not args.plan or not args.output or args.output.exists(): p.error('Provide --plan and fresh --output')
+        result=curriculum_plan(json.loads(args.plan.read_text(encoding='utf8')),args.output)
+        args.output.mkdir(parents=True)
+        (args.output/'plan.json').write_text(json.dumps(result,indent=2),encoding='utf8')
+        return
     if args.action=='run':
         if not args.plan or not args.stage: p.error('Provide --plan and --stage')
         run_job(json.loads(args.plan.read_text(encoding='utf-8')),args.stage)
         return
     if not args.output or args.output.exists(): p.error('Provide fresh --output')
-    if args.action=='summarize':
+    if args.action in ('summarize','curriculum-summary'):
         if not args.reports: p.error('Provide --reports')
-        result=summarize(args.reports)
+        result=(summarize_curriculum if args.action=='curriculum-summary' else summarize)(args.reports)
         args.output.mkdir(parents=True)
         (args.output/'report.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
         return

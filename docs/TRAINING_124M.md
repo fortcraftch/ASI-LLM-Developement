@@ -1,6 +1,21 @@
 # Primera LLM categorizada: presupuesto de 124M
 
-Diseño basado en `TFG_actualizado_2026-09-27.txt` y en el `manifest.json` de la raíz. Las recetas están preparadas; no se ha entrenado ninguno de estos modelos ni medido su velocidad en la RTX 5060 Ti de 16 GB.
+Diseño basado en `TFG_actualizado_2026-09-27.txt` y en el manifiesto del dataset. Actualización 04/10/2026: terminó el categorizado `domain_16_uniform_pool`, disponible como `model_37595.pt`. Su configuración efectiva usó batch 8; el `val_loss` guardado es 3,224688 y corresponde a la validación anterior a la última actualización. No se debe presentar como una evaluación exhaustiva del checkpoint final. Véase [evaluación](EVALUACION_37595.md).
+
+## Siguiente entrenamiento en homelab
+
+El siguiente control es **`base_16_learned.json`**, desde cero: mismos 122.325.504 parámetros, seed 1337, batch efectivo 262.144, microbatch 8, contexto 1.024, 37.596 actualizaciones, muestreo sqrt y LR. Permite elegir dos expertos de los 16 durante el entrenamiento. Posteriormente se clasificará este mismo checkpoint; no hace falta entrenar un tercer modelo para obtener el caso «preentrenado clasificado».
+
+Lanzador Linux preparado y configuración verificada mediante dry-run:
+
+```bash
+bash configs/experiment_124m_v1/train_next_homelab.sh /ruta/al/dataset --dry-run
+bash configs/experiment_124m_v1/train_next_homelab.sh /ruta/al/dataset
+```
+
+Usa backend `bmm`, guarda cada 25 actualizaciones y conserva tres checkpoints; reinicia ante errores CUDA reconocidos hasta cinco veces. El backend evita depender de grouped_mm, pero no garantiza eliminar timeouts del controlador. Requiere una prueba de VRAM en la 5060 Ti antes de la ejecución larga: el caso libre puede tener más expertos activos en un batch que el categorizado. Si batch 8 no cabe, definir otro microbatch antes de empezar, conservar batch global y registrar la diferencia. Para reanudar, añadir `--resume results/base_124m_seed1337/model_XXXXX.pt` sin cambiar calendario. No se ha iniciado aquí ese entrenamiento.
+
+El guardado más frecuente no cambia el presupuesto de optimización. Sí cambia el tiempo de pared; el backend bmm también puede cambiar velocidad y redondeos respecto al entrenamiento anterior. La comparación de calidad debe registrar estas diferencias.
 
 ## Datos y categorías
 
@@ -175,3 +190,10 @@ No reinicia el sistema ni recupera procesos que se quedan colgados sin terminar.
 Un error 702 observado en `loss.item()` puede proceder de un kernel anterior, porque esa lectura sincroniza CUDA. Terminar el proceso que falló y lanzar uno nuevo. En Linux, establecer `export ASI_MOE_BACKEND=bmm` antes del comando habitual permite aislar la ruta `grouped_mm`. `auto` conserva la selección anterior; `grouped` fuerza ese backend y falla si no está disponible. Los errores del backend se propagan sin intentar continuar con otro kernel en un contexto posiblemente inválido.
 
 Para localizar la operación, usar temporalmente `export CUDA_LAUNCH_BLOCKING=1` y retirar después con `unset CUDA_LAUNCH_BLOCKING`; altera el rendimiento medido. La elección de backend no cambia pools ni parámetros y permite reanudar con los mismos argumentos de entrenamiento. Puede cambiar el redondeo numérico. Se registra en `run_metadata.json`. No se ha reproducido el timeout de la 5060 Ti localmente: si persiste con BMM, recoger la traza síncrona, versión de PyTorch/CUDA y `nvidia-smi` antes de atribuirlo al MoE o al controlador.
+# Lanzador del modelo 3
+
+Para entrenar los ocho especialistas densos independientes, reanudar la colección
+y construir automáticamente el banco del router global, consultar
+[ROUTER_BANK_TRAINING.md](ROUTER_BANK_TRAINING.md). El lanzador reutiliza las recetas
+y el supervisor de entrenamiento existentes.
+

@@ -12,12 +12,25 @@ modelos ya entrenados. Las recetas y los checkpoints de ambas líneas son distin
 
 | Necesidad | Documento de referencia |
 |---|---|
+| Entrenar el modelo 3 en homelab: router global y ocho LLM independientes | [Banco de especialistas](docs/ROUTER_BANK_TRAINING.md) |
+| Probar recalibración, núcleo compartido y primeras capas libres | [Intervenciones de máscaras](docs/MASK_INTERVENTIONS.md) |
+| Conversar con DeepSeek libre y comparar memoria/velocidad con ASI y GPT-2 | [Generación local comparable](docs/LOCAL_124M_GENERATION.md) |
+| Revisar el borrador académico y sus evidencias | [Paper en inglés](paper/README.md) |
+| Separar el efecto de restringir expertos del finetuning y medir cambios de tema | [Validación controlada de recuperación](docs/RECOVERY_VALIDATION.md) |
+| Investigar si la concentración de expertos persiste | [Seguimiento con tres semillas](docs/CAPACITY_FOLLOWUP.md) |
+| Avanzar el paso 9 con comparaciones controladas de expertos | [Piloto de capacidad y granularidad](docs/CAPACITY_PILOT.md) |
+| Ejecutar todos los benchmarks rápido, con un solo pool activo | [Evaluación por lotes y residencia completa](docs/BENCHMARKS_RAPIDOS.md) |
+| Avance de los pasos 1–4 y preparación del paso 9 | [Evaluación optimizada, SFT ampliado y recetas](docs/AVANCE_2026-10-05.md) |
+| Retomar el checkpoint entrenado y comparar con GPT-2 | [Evaluación 37595](docs/EVALUACION_37595.md) |
+| Ajustar el modelo categorizado con respuestas OASST y compararlo antes/después | [Piloto SFT](docs/EVALUACION_37595.md#fine-tuning-supervisado-del-modelo-categorizado) |
+| Revisar las ideas del tutor y la posición del TFG | [Estado del arte, actualizado 08/10/2026](docs/ESTADO_ARTE_2026-10-04.md) |
 | Entender el proyecto y los términos | [Recapitulación](docs/RECAPITULACION.md) |
 | Incorporar el estado actual al documento académico | [Actualización del TFG, 29/09/2026](docs/TFG_estado_actual_2026-09-29.md) |
 | Saber qué está hecho, qué falta y qué archivo corresponde a cada paso | [Registro del TFG](docs/plan.json), consultable con `python -m asi plan` |
 | Diseñar e interpretar experimentos | [Protocolo](docs/PLAN.md) |
 | Ejecutar comandos y migrar scripts antiguos | [Uso](docs/USAGE.md) |
 | Entrenar los modelos de 124M | [Entrenamiento](docs/TRAINING_124M.md) |
+| Separar tamaño de expertos, capacidad activa y restricciones de routing | [Estudio de capacidad](docs/CAPACITY_STUDY.md) |
 | Decidir residencia, unir pools y usar caché INT8 GPU | [Runtime adaptativo](docs/ADAPTIVE.md) |
 | Compartir categorías entre modelos y clasificador | [Taxonomía](docs/TAXONOMY.md) |
 | Entrenar el clasificador y planificar subtareas | [Ejemplos y tareas](docs/CLASSIFIER_DATA_TASKS.md) |
@@ -55,3 +68,14 @@ python -m unittest discover -s tests -v
 incluye esa base y los extras de AirLLM. Ambos se instalan en el mismo entorno
 (localmente `F:\.venv`), sin crear una segunda venv. OLMoE usa respaldo en disco
 y una caché RAM ajustable; no exige alojar todos los expertos en RAM.
+
+Evaluación del DeepSeek original con routing libre: [protocolo, resultados y comando completo](docs/DEEPSEEK_EVAL.md).
+
+Estado y comandos de los [puntos 9–13](docs/CONTINUACION_9_13.md): capacidad, profesor OLMoE, recuperación, calendario 32→16 y presupuestos del gestor.
+## Seguimiento del piloto de recuperación
+
+El análisis del piloto completado y los mapas están en
+[RECOVERY_PILOT_ANALYSIS](docs/RECOVERY_PILOT_ANALYSIS.md).
+El siguiente diagnóstico de selección de expertos con tokens idénticos se
+documenta en [PAIRED_ROUTING](docs/PAIRED_ROUTING.md).
+

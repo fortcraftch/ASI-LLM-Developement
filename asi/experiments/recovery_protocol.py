@@ -4,6 +4,26 @@ from decimal import Decimal, InvalidOperation
 import random
 import re
 import torch
+import os
+from pathlib import Path
+
+
+def durable_save(path, payload, tensor=False):
+    """Flush before atomic replacement; an interrupted save preserves the old file."""
+    import json
+    path=Path(path)
+    pending=path.with_suffix(path.suffix+'.tmp')
+    try:
+        with pending.open('wb') as handle:
+            if tensor:
+                torch.save(payload,handle)
+            else:
+                handle.write(json.dumps(payload,indent=2).encode('utf-8'))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(pending,path)
+    finally:
+        pending.unlink(missing_ok=True)
 
 
 class TeacherRow(dict):
@@ -37,9 +57,37 @@ def teacher_identity(identity, with_eos):
             'objective': 'native_full_distribution_assistant_eos_v3'}
 
 
-def training_order(count, masks, steps, seed, warmup32=0):
+def select_teacher_entries(manifest, identity, expected_ids, allow_partial=False):
+    if manifest.get('identity')!=identity or (not manifest.get('completed') and not allow_partial):
+        raise ValueError('Teacher identity differs or preparation is incomplete')
+    entries=manifest['entries']; ids=[e['id'] for e in entries]; expected=set(expected_ids)
+    if len(ids)!=len(set(ids)) or not expected<=set(ids) or (not allow_partial and set(ids)!=expected):
+        raise ValueError('Teacher examples differ from requested corpus')
+    return [e for e in entries if e['id'] in expected]
+
+
+def training_order(count, masks, steps, seed, warmup32=0, paired_examples=False, only_mask=None):
+    if count < 1 or steps < 1 or not masks:
+        raise ValueError('Positive example count, steps and masks required')
+    if only_mask is not None and (only_mask not in masks or warmup32 or not paired_examples):
+        raise ValueError('Fixed training mask requires paired examples and no curriculum')
     if warmup32 and (set(masks) != {'32','16'} or not 0 < warmup32 < steps):
         raise ValueError('Curriculum requires masks 32/16 and 0 < warmup < steps')
+    if paired_examples:
+        # Example order is independent of residency: the treatment changes masks only.
+        examples_rng=random.Random(seed)
+        mask_rng=random.Random(seed ^ 0x5A17)
+        indices=list(range(count)); mask_cycle=[]; result=[]
+        for step in range(steps):
+            if step % count == 0: examples_rng.shuffle(indices)
+            if only_mask is not None: mask=only_mask
+            elif step < warmup32: mask='32'
+            else:
+                if not mask_cycle:
+                    mask_cycle=list(masks); mask_rng.shuffle(mask_cycle)
+                mask=mask_cycle.pop()
+            result.append((indices[step % count],mask))
+        return result
     rng=random.Random(seed)
     phases=[(warmup32,['32']), (steps-warmup32,list(masks))] if warmup32 else [(steps,list(masks))]
     result=[]

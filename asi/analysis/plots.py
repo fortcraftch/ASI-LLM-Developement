@@ -160,7 +160,35 @@ class Gallery:
 def draw_report(g, path):
     d = read(path); summary = d.get('summary', {})
     study = path.parent.name
-    if d.get('completed') and d.get('kind')=='recovery_expanded':
+    if d.get('completed') and d.get('kind')=='local_124m_generation':
+        from asi.analysis.local_generation_report import summarize, model_label
+        rows=summarize(d)
+        g.bars('Modelos locales de unos 124M · memoria y velocidad',
+            [model_label(m) for m in d['models']],[
+            ('Pesos residentes en GPU','MiB',[r['gpu_weight_mib'] for r in rows]),
+            ('Pico asignado CUDA','MiB',[r['peak_mib'] for r in rows]),
+            ('Generación con trabajo fijo','tokens/s; mediana',[r['median_tokens_s'] for r in rows]),
+            ('Primer token','ms; mediana',[r['median_first_token_ms'] for r in rows])],
+            'Mismos prefijos, batch 1, FP32/BF16 y contexto completo sin KV incremental. '
+            'La prueba de tiempo ignora EOS para igualar tokens; textos con EOS se evalúan por separado. '
+            'Categoría declarada: no incluye clasificador ni preparación. Entrenamiento y kernels diferentes.',path)
+    elif d.get('completed') and d.get('kind')=='recovery_validation':
+        from asi.analysis.recovery_validation_report import LABELS, validate
+        plan=read(path.parent/'plan.json')
+        reports={v:read(path.parent/v/'report.json') for v in plan['variants']}
+        validate(reports,plan,sha(path.parent/'plan.json'))
+        if any(sha(path.parent/v/'report.json')!=d['sources'][v] for v in reports):
+            raise ValueError('Recovery summary source changed; regenerate the summary')
+        names=list(d['variants']); rows=[d['variants'][v] for v in names]
+        g.bars('Recuperación controlada · '+study,[LABELS[v] for v in names],[
+            ('Pico GPU','GiB',[r['peak_gpu_gib'] for r in rows]),
+            ('Respuesta completa','s; mediana, preparar + generar',[r['median_response_s'] for r in rows]),
+            ('Transferencia total RAM → GPU','GiB; preparación + generación',[r['preparation_h2d_gib']+r['generation_h2d_gib'] for r in rows]),
+            ('Repetición','%; mediana de trigramas',[100*r['median_repetition'] for r in rows])],
+            'Mismas preguntas reservadas y máscaras antes/después del ajuste. Etiquetas conocidas; '
+            'una pasada, longitudes EOS distintas. Menos tiempo o repetición no demuestra corrección. '
+            'Las cargas al cambiar de tema están incluidas en preparación; no es chat con historial.',path)
+    elif d.get('completed') and d.get('kind')=='recovery_expanded':
         names=['Original nativo']+[r['adaptation']+' · K='+r['mask'] for r in d['summary']]
         g.bars('Recuperación frente al modelo nativo · '+study,names,[
             ('Error sobre respuestas reservadas','CE media por ejemplo',[d['native_ce']]+[r['ce_mean'] for r in d['summary']])],
@@ -429,6 +457,13 @@ def build(results, output, refresh=False):
     # Originals first, then unique regression results in backups.
     priority = {'fixed_two_no_E_04750_v1':0, 'decode_two_experts_04750_v1':1, 'cache_study_04750_v1':2, 'posthoc_04750':3}
     paths = sorted(results.rglob('report.json'),key=lambda p: ('refactor_backup' in p.parts,priority.get(p.parent.name,4),str(p)))
+    for path in sorted(results.rglob('summary.json')):
+        try:
+            candidate=read(path)
+        except (json.JSONDecodeError, UnicodeError):
+            continue
+        if isinstance(candidate,dict) and candidate.get('kind')=='recovery_validation' and candidate.get('completed'):
+            paths.append(path)
     for path in paths:
         fingerprint=sha(path)
         if fingerprint in seen:
@@ -445,7 +480,11 @@ def build(results, output, refresh=False):
             seen.add(fingerprint)
             if draw_chat(g,path): g.source(path,'chat de integración')
     for path in sorted(results.rglob('manifest.json')):
-        d=read(path)
+        try:
+            d=read(path)
+        except (json.JSONDecodeError, UnicodeError) as exc:
+            g.source(path,'inválido; sin resultados',f'Manifest ilegible; archivo conservado: {exc}')
+            continue
         if isinstance(d,dict) and d.get('state') in ('prepared_not_executed','models_registered_not_executed'):
             g.source(path,'pendiente; sin resultados','Entradas y matriz congeladas, no una evaluación ejecutada.')
     for path in sorted(results.glob('*/log.txt')):

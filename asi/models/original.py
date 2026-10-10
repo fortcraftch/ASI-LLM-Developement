@@ -34,10 +34,12 @@ def import_architecture(architecture):
     return module, config_class, model_class
 
 
-def load_original_model(checkpoint,architecture=DEFAULT_ARCHITECTURE):
+def load_original_model(checkpoint,architecture=DEFAULT_ARCHITECTURE,*,max_batch_size=None):
     _, config_class, model_class = import_architecture(architecture)
     ckpt=torch.load(checkpoint,map_location='cpu',weights_only=False,mmap=True)
-    config=config_class(**ckpt['config'])
+    runtime_config=dict(ckpt['config'])
+    if max_batch_size is not None:runtime_config['max_batch_size']=max_batch_size
+    config=config_class(**runtime_config)
     model=model_class(config)
     model.load_state_dict(ckpt['model'],strict=True)
     model.eval()

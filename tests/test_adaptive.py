@@ -17,6 +17,17 @@ from test_expert_runtime import tiny
 
 
 class AdaptiveTests(unittest.TestCase):
+    def test_budget_sweep_is_bound_to_model_and_keeps_multilabel(self):
+        from asi.runtime.adaptive import budget_sweep
+        runtime={'identity':{'checkpoint':'a'},'layout':memory_layout(tiny())}
+        evidence={'identity':runtime['identity'],'profiles':[{'mode':'dense','pools':[0,1],'nll_delta':.05}]}
+        result=budget_sweep(runtime,evidence,[1e-10,1],.1)
+        self.assertFalse(result['executed'])
+        self.assertEqual(result['rows'][0]['plan']['status'],'blocked')
+        self.assertEqual(result['rows'][1]['plan']['pools'],[0,1])
+        self.assertEqual(result['rows'][1]['plan']['status'],'ready')
+        with self.assertRaises(ValueError): budget_sweep(runtime,dict(evidence,identity={}),[1],.1)
+
     def test_union_executes_all_selected_without_E_and_restores(self):
         model = tiny().eval()
         model.config.routing_mode = 'uniform_pool'

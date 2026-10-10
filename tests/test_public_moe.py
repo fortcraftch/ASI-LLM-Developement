@@ -27,6 +27,22 @@ def tiny():
 
 
 class PublicMoeTests(unittest.TestCase):
+    def test_heterogeneous_residency_leaves_first_layer_free(self):
+        model = tiny()
+        cache = OlmoeExpertCache(model, 'cpu', capacity=6)
+        mapping = {'0': {'experts': [0, 1, 2, 3], 'weights': [.25]*4},
+                   '1': {'experts': [1, 3], 'weights': [.5]*2}}
+        cache.set_context(mapping, mixture='restricted', active=2)
+        seen = {}
+        cache.callbacks.append(lambda layer, indices, weights: seen.update({layer: indices.clone()}))
+        before = cache.stats['loads']
+        with torch.inference_mode():
+            model(torch.tensor([[3, 5, 8]]))
+        self.assertTrue(set(seen[1].flatten().tolist()) <= {1, 3})
+        self.assertEqual(cache.snapshot()['resident_per_layer'], {'0': 4, '1': 2})
+        self.assertEqual(cache.stats['loads'], before)
+        cache.close()
+
     def test_continuation_scores_exclude_prompt_and_self_kl_is_zero(self):
         from asi.experiments.routing_study import reference_scores
         class Model:
@@ -97,10 +113,15 @@ class PublicMoeTests(unittest.TestCase):
             self.assertGreater(store.stats['ram_misses'], 0)
             self.assertGreater(store.stats['logical_read_bytes'], 0)
             store.limit = 100000
-            pair = store.get((0, 0))
-            hits = store.stats['ram_hits']
-            self.assertIs(store.get((0, 0)), pair)
-            self.assertEqual(store.stats['ram_hits'], hits + 1)
+            # A busy host may legitimately evict everything; exercise the hit
+            # contract under controlled headroom, then pressure eviction below.
+            with patch('psutil.virtual_memory', return_value=SimpleNamespace(available=2**30)), \
+                 patch('psutil.Process') as process:
+                process.return_value.memory_info.return_value=SimpleNamespace(rss=0)
+                pair = store.get((0, 0))
+                hits = store.stats['ram_hits']
+                self.assertIs(store.get((0, 0)), pair)
+                self.assertEqual(store.stats['ram_hits'], hits + 1)
             with patch('psutil.virtual_memory', return_value=SimpleNamespace(available=0)):
                 store.trim()
             self.assertEqual(store.bytes, 0)

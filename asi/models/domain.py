@@ -760,6 +760,32 @@ class MoE(nn.Module):
         if self.moe_backend not in ('auto', 'bmm', 'grouped'):
             raise ValueError('ASI_MOE_BACKEND must be auto, bmm or grouped')
         self._backend_reported = False
+        self.uniform_fastpath = True
+        self._uniform_mask_cache = None
+
+    def _fixed_pool_forward(self, x, mask):
+        # Inference only: no sorting/scattering for a pool shared by every token.
+        if mask is None or mask.dtype != torch.bool or mask.shape != (self.n_routed_experts,):
+            raise ValueError('Uniform routing requires an explicit expert mask')
+        try:
+            version = mask._version
+        except RuntimeError:  # inference-mode tensors do not expose version counters
+            version = None
+        cached = self._uniform_mask_cache
+        if version is None or cached is None or cached[0] is not mask or cached[1] != version:
+            ids = mask.nonzero(as_tuple=False).flatten().tolist()
+            self._uniform_mask_cache = (mask, version, ids)
+        else:
+            ids = cached[2]
+        if len(ids) != self.gate.topk:
+            raise ValueError('Uniform N/N requires exactly N allowed experts; select one pool')
+        y = torch.zeros_like(x)
+        for expert_id in ids:
+            value = self.experts[expert_id](x)
+            # Match the reference backend: round the weighted contribution in
+            # the execution dtype, then accumulate in the residual dtype.
+            y = y + (value * (self.gate.route_scale / self.gate.topk)).to(x.dtype)
+        return y + self.shared_experts(x)
 
     def allowed_mask_for_pools(self, pool_ids: Sequence[int]) -> torch.Tensor:
         ids = torch.as_tensor(list(pool_ids), dtype=torch.long, device=self.expert_pool_ids.device)
@@ -882,6 +908,12 @@ class MoE(nn.Module):
     def forward(self, x: torch.Tensor, allowed_expert_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         shape = x.size()
         x = x.reshape(-1, self.dim)
+        if (self.uniform_fastpath and not self.training and not torch.is_grad_enabled()
+                and world_size == 1 and self.gate.routing_mode == 'uniform_pool'
+                and 'forward' not in self.gate.__dict__
+                and self.gate.topk <= 4 and self.gate.routing_observer is None
+                and not self.gate._forward_hooks and not self.gate._forward_pre_hooks):
+            return self._fixed_pool_forward(x, allowed_expert_mask).view(shape)
         if allowed_expert_mask is not None:
             allowed_expert_mask = allowed_expert_mask.to(device=x.device)
         weights, indices = self.gate(x, allowed_expert_mask=allowed_expert_mask)
@@ -1043,6 +1075,7 @@ class GPT(nn.Module):
         targets=None,
         start_pos: int = 0,
         active_expert_mask: Optional[torch.Tensor] = None,
+        logits_to_keep: int = 0,
     ):
         B, T = idx.size()
         assert T <= self.config.block_size, (
@@ -1064,7 +1097,9 @@ class GPT(nn.Module):
             x = layer(x, start_pos, freqs_cis, mask, active_expert_mask=active_expert_mask)
 
         x = self.norm(x)
-        logits = self.head(x)
+        if logits_to_keep and targets is not None:
+            raise ValueError('Partial logits cannot be used with training targets')
+        logits = self.head(x[:, -logits_to_keep:] if logits_to_keep else x)
         loss = None
         if targets is not None:
             loss = F.cross_entropy(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))

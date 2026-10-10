@@ -223,6 +223,50 @@ def choose_plan(layout, pools, available_bytes, reserve_bytes, warm_bytes=0,
             'note': 'Memory estimate, not an OOM guarantee. Quality is empirical, not a bound for each prompt.'}
 
 
+def budget_sweep(runtime_report, evidence, budgets, max_nll_delta, reserve_bytes=0, warm_bytes=0):
+    """Offline feasibility estimates bound to an existing model and calibration."""
+    identity=runtime_report.get('identity')
+    if not identity or evidence.get('identity')!=identity:
+        raise ValueError('Calibration and runtime model identities must match')
+    if not budgets or any(not math.isfinite(b) or b<=0 for b in budgets):
+        raise ValueError('Positive finite GPU budgets required')
+    layout=dict(runtime_report['layout'])
+    for key in ('pool_bytes','packed_pool_bytes'):
+        layout[key]={int(k):v for k,v in layout[key].items()}
+    contexts=sorted({tuple(p['pools']) for p in evidence['profiles']})
+    if not contexts: raise ValueError('No calibrated contexts')
+    rows=[]
+    for budget in budgets:
+        for pools in contexts:
+            rows.append({'gpu_budget_gib':budget,'pools':list(pools),
+                         'plan':choose_plan(layout,list(pools),int(budget*2**30),reserve_bytes,
+                                            warm_bytes,max_nll_delta,evidence,identity)})
+    return {'identity':identity,'rows':rows,'executed':False,
+            'limitations':['GPU memory estimates only, not measurements on these devices.',
+                           'Calibration NLL is not a per-prompt quality guarantee.',
+                           'RAM, disk throughput and topic-transition latency require separate measurements.',
+                           'This uniform-pool planner is not an OLMoE residency selector.']}
+
+
+def budgets_main():
+    parser=argparse.ArgumentParser(description='Explore GPU budgets using measured quality from the same model')
+    parser.add_argument('--runtime-report',type=Path,required=True)
+    parser.add_argument('--quality-report',type=Path,required=True)
+    parser.add_argument('--gpu-gib',type=float,nargs='+',required=True)
+    parser.add_argument('--max-nll-delta',type=float,required=True)
+    parser.add_argument('--reserve-mib',type=float,default=512)
+    parser.add_argument('--warm-mib',type=float,default=0)
+    parser.add_argument('--output',type=Path,required=True)
+    args=parser.parse_args()
+    if args.output.exists(): parser.error('Use a fresh output file')
+    result=budget_sweep(json.loads(args.runtime_report.read_text(encoding='utf8')),
+                        json.loads(args.quality_report.read_text(encoding='utf8')),args.gpu_gib,
+                        args.max_nll_delta,int(args.reserve_mib*2**20),int(args.warm_mib*2**20))
+    result['sources']={str(p):fingerprint(p) for p in (args.runtime_report,args.quality_report)}
+    args.output.parent.mkdir(parents=True,exist_ok=True)
+    args.output.write_text(json.dumps(result,indent=2),encoding='utf8')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--checkpoint', type=Path, required=True)

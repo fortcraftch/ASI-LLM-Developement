@@ -12,6 +12,102 @@ from asi.experiments.recovery_study import make_plan, export_review, summarize
 
 
 class RecoveryProtocolTests(unittest.TestCase):
+    def test_execution_mask_subset_preserves_full_bank(self):
+        from asi.experiments.recovery import execution_masks
+        bank={'32':{'category':[1,2]},'16':{'category':[1]}}
+        self.assertEqual(execution_masks(bank,[16]),{'16':{'category':[1]}})
+        self.assertEqual(set(bank),{'32','16'})
+        with self.assertRaises(ValueError):execution_masks(bank,[8])
+        with self.assertRaises(ValueError):execution_masks(bank,[16,16])
+
+    def test_pilot_queue_requires_ready_matching_subset(self):
+        from asi.experiments.recovery_study import run_pilot
+        from asi.taxonomy import digest
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'ids.json').write_text('["a"]')
+            jobs=[{'name':str(i),'argv':['recovery',action,'--example-ids',str(root/'ids.json'),
+                  '--examples',str(root/'corpus.json'),'--output',str(root/str(i))]}
+                  for i,action in enumerate(['native','train','train','train'])]
+            (root/'jobs.json').write_text(json.dumps(jobs));(root/'corpus.json').write_text('{"examples":[]}')
+            with patch('asi.experiments.recovery_study.subprocess.run') as run:
+                with self.assertRaises(ValueError): run_pilot(root)
+                run.assert_not_called()
+            (root/'prepare').mkdir()
+            (root/'prepare'/'report.json').write_text(json.dumps({'subset_completed':True,'identity':{'evaluation_subset':digest(['a'])}}))
+            def complete(argv,**kwargs):
+                output=Path(argv[argv.index('--output')+1]);output.mkdir()
+                (output/'report.json').write_text(json.dumps({'settings':{'adaptation':output.name},'dev_best_worst_group_ratio':.9}))
+            with patch('asi.experiments.recovery_study.subprocess.run',side_effect=complete) as run, patch('asi.experiments.recovery_study.summarize',return_value={}), patch('asi.experiments.recovery_study.export_review') as review:
+                run_pilot(root)
+                self.assertEqual(run.call_count,4);review.assert_called_once()
+
+    def test_partial_teacher_only_allows_complete_explicit_subset(self):
+        from asi.experiments.recovery_protocol import select_teacher_entries
+        identity={'source':'a','corpus':'b'}
+        manifest={'identity':identity,'completed':False,'entries':[{'id':'a'},{'id':'b'}]}
+        self.assertEqual(select_teacher_entries(manifest,identity,['a'],True),[{'id':'a'}])
+        with self.assertRaises(ValueError): select_teacher_entries(manifest,identity,['a'])
+        with self.assertRaises(ValueError): select_teacher_entries(manifest,identity,['missing'],True)
+        with self.assertRaises(ValueError): select_teacher_entries(manifest,{},['a'],True)
+        with self.assertRaises(ValueError): select_teacher_entries(dict(manifest,completed=True),identity,['a'])
+    def test_subset_keeps_original_rows_and_requires_heldout_coverage(self):
+        from asi.experiments.recovery import select_examples
+        corpus={'examples':[{'id':s+c,'split':s,'category':c} for s in ('train','dev','test') for c in ('a','b')]}
+        ids=[r['id'] for r in corpus['examples']]
+        self.assertEqual(select_examples(corpus,ids)['examples'],corpus['examples'])
+        with self.assertRaises(ValueError): select_examples(corpus,ids[:-1])
+        with self.assertRaises(ValueError): select_examples(corpus,ids+[ids[0]])
+        with self.assertRaises(ValueError): select_examples(corpus,['unknown'])
+    def test_paired_examples_are_independent_of_residency_schedule(self):
+        common=(7,['32','16'],42,1337)
+        mixed=training_order(*common,paired_examples=True)
+        gradual=training_order(*common,14,paired_examples=True)
+        direct=training_order(*common,paired_examples=True,only_mask='16')
+        self.assertEqual([i for i,_ in mixed],[i for i,_ in gradual])
+        self.assertEqual([i for i,_ in mixed],[i for i,_ in direct])
+        self.assertTrue(all(m=='16' for _,m in direct))
+        self.assertTrue(all(m=='32' for _,m in gradual[:14]))
+        self.assertEqual(sum(m=='16' for _,m in gradual[14:]),14)
+        for start in range(0,42,7): self.assertEqual({i for i,_ in mixed[start:start+7]},set(range(7)))
+        with self.assertRaises(ValueError): training_order(*common,only_mask='16')
+
+    def test_curriculum_summary_rejects_changed_example_order(self):
+        from asi.experiments.recovery_study import summarize_curriculum
+        settings={'seed':1,'steps':2,'mask_sizes':[32,16],'paired_example_order':True}
+        records=[{'id':'x','mask':m,'ce':3.} for m in ('32','16')]
+        report={'completed':True,'action':'train','identity':{'source':'a'},
+                'teacher_manifest_sha256':'hash','trainable_parameters':10,'selected_step':1,
+                'test_before':{'records':records},'test_after':{'records':records}}
+        with tempfile.TemporaryDirectory() as folder:
+            paths=[]
+            for policy in ('direct16','mixed','gradual'):
+                s=dict(settings,train_mask='16' if policy=='direct16' else None,
+                       curriculum_32_steps=1 if policy=='gradual' else 0)
+                path=Path(folder)/(policy+'.json')
+                path.write_text(json.dumps(dict(report,settings=s,steps=[{'id':'a'},{'id':'b'}])))
+                paths.append(path)
+            self.assertEqual(len(summarize_curriculum(paths)['rows']),6)
+            changed=json.loads(paths[0].read_text());changed['steps'].reverse()
+            paths[0].write_text(json.dumps(changed))
+            with self.assertRaises(ValueError): summarize_curriculum(paths)
+
+    def test_curriculum_plan_preserves_teacher_and_guards_dependencies(self):
+        from asi.experiments.recovery_study import curriculum_plan,plan_status
+        corpus={'examples':[{'split':'train'}]*4}
+        original=make_plan(corpus,Path('corpus'),Path('study'),Path('out'),[1],1,Path('model'))
+        snapshot=json.dumps(original)
+        plan=curriculum_plan(original,Path('followup'))
+        self.assertEqual(json.dumps(original),snapshot)
+        self.assertEqual(len(plan['jobs']),8)
+        for job in plan['jobs'][-3:]:
+            argv=job['argv']
+            self.assertEqual(argv[argv.index('--teacher-dir')+1],'out/teacher')
+            self.assertEqual(argv[argv.index('--steps')+1],'12')
+            self.assertEqual(len(job['dependencies']),5)
+            self.assertIn('--paired-example-order',argv)
+        self.assertEqual(plan_status(plan)['jobs'][-1]['waiting_for'],plan['jobs'][-1]['dependencies'])
+        with self.assertRaises(ValueError): curriculum_plan(plan,Path('again'))
+
     def test_padding_preserves_valid_token_predictions(self):
         from test_public_moe import tiny
         model=tiny().eval()
@@ -90,7 +186,7 @@ class RecoveryProtocolTests(unittest.TestCase):
         for job in plan['jobs'][2:]:
             args=job['argv']; self.assertEqual(args[args.index('--steps')+1],'8')
             self.assertEqual(args[args.index('--mask-sizes')+1],'32')
-        self.assertEqual(plan['jobs'][0]['argv'][-1],str(Path('out/teacher_report')))
+        self.assertEqual(plan['jobs'][0]['argv'][-1],'out/teacher_report')
 
     def test_review_is_blinded_and_keeps_unknown_scores_empty(self):
         from asi.taxonomy import digest

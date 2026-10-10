@@ -5,7 +5,23 @@ Ejecutar desde la raíz con el entorno activado. En esta máquina se ha validado
 y verificar CUDA en PyTorch. Clasificador y tokenizer pueden descargarse la
 primera vez. Consultar opciones con `--help` en cualquier comando.
 
+Para la batería completa de calidad, usar [benchmarks rápidos](BENCHMARKS_RAPIDOS.md):
+todos los pesos residentes, clasificación y evaluación por lotes, un pool activo.
+
 ## Organización y archivos históricos
+
+Avance de octubre: [evaluación optimizada y SFT ampliado](AVANCE_2026-10-05.md).
+Para medir HellaSwag con cuatro alternativas agrupadas:
+
+```bash
+python -m asi checkpoint-eval --checkpoint model_37595.pt --gpt2-evaluator ../Creating-GPT-2-From-0/eval.py --modes classified --tasks hellaswag --limit 100 --skip-probes --output results/hellaswag_nuevo.json
+```
+
+Añadir `--reference-eval` y elegir otra salida permite comparar con la ejecución
+anterior. `python -m asi chat domain --help` incluye `--diagnostics` para inspeccionar
+la terminación. `python -m asi conversation-compare --help` permite comparar GPT-2
+y los checkpoints categorizados bajo el mismo formato de conversación.
+
 
 El [README](../README.md) es el índice; [plan.json](plan.json) es la fuente del
 estado y de la correspondencia de archivos con el TFG. [PLAN.md](PLAN.md)
@@ -81,6 +97,29 @@ python -m asi chat domain --checkpoint results/domain_trial/model_00009.pt --pin
 clave: son diagnósticos, no sustituyen el sistema real. Elegir modos con
 `--modes restricted unrestricted ablated`. `--max-hot-pools` limita residencia;
 tener pesos retenidos no los autoriza en la máscara de routing.
+
+### Conversar con el modelo categorizado ajustado con OASST
+
+Desde la raíz del proyecto, con el entorno virtual activado:
+
+```bash
+python -m asi chat domain --checkpoint results/domain_sft_oasst_pilot/best.pt --pool-manifest configs/experiment_124m_v1/expert_pools.json --session-context --max-hot-pools 1 --max-new-tokens 128 --temperature 0.7 --top-k 40
+```
+
+Escribe en `You>`; `/reset` borra el historial y la inercia de clasificación,
+y `exit` termina. `--chat-format auto` (predeterminado) detecta el SFT y usa
+los marcadores OASST. El historial conserva los turnos del asistente y EOS;
+la clasificación utiliza únicamente mensajes del usuario. Se reserva espacio
+para la respuesta y se recorta el contexto antiguo si no cabe. La salida muestra
+solo la respuesta nueva. Con `--max-hot-pools 1` este checkpoint mantiene una pareja
+de expertos por capa; se puede cambiar de pool entre respuestas.
+
+Para respuestas deterministas usa `--top-k 1`. Para comparar el original con el
+mismo formato, sustituye el checkpoint por `model_37595.pt` y añade
+`--chat-format oasst`. Sin esa opción el original se usa como continuador de texto.
+El SFT del piloto se preparó con conversaciones en inglés; empezar en inglés
+facilita interpretar sus limitaciones. Todavía puede repetir texto o responder
+incorrectamente. Ver [resultados del ajuste](EVALUACION_37595.md#fine-tuning-supervisado-del-modelo-categorizado).
 
 ## Modelo ya entrenado — 2.1–2.3
 
@@ -339,3 +378,7 @@ los comandos futuros. La preparación actual está en
 python -m asi comparison check --suite results/comparison_prepared_v1
 python -m asi comparison --help
 ```
+
+## DeepSeek original
+
+Consultar [DEEPSEEK_EVAL.md](DEEPSEEK_EVAL.md) para evaluar un checkpoint con los benchmarks de GPT-2/ASI y auditar sus expertos usando el comando deepseek-eval.

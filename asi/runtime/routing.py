@@ -160,6 +160,27 @@ class DomainSessionRouter:
     def route(self, text: str) -> RouteResult:
         t = self._norm(text)
         broad = self._broad_scores(t)
+        return self._route_with_broad(t, broad)
+
+    @torch.inference_mode()
+    def route_many(self, texts: List[str], batch_size: int = 8) -> List[RouteResult]:
+        """Batch independent classifier forwards; preserve ordered inertia updates."""
+        if batch_size < 1: raise ValueError('Positive classifier batch size required')
+        result = []
+        for offset in range(0,len(texts),batch_size):
+            normalized = [self._norm(t) for t in texts[offset:offset+batch_size]]
+            if self.classifier is None:
+                broad = [{} for _ in normalized]
+            else:
+                encoded = self.tokenizer(normalized,truncation=True,max_length=512,padding=True,return_tensors='pt')
+                values = self.classifier(**{k:v.to(self.device) for k,v in encoded.items()}).logits.sigmoid().float().cpu().tolist()
+                if any(len(row)!=len(LABELS) for row in values):
+                    raise ValueError("Classifier must use the pipeline's 17-label ordering")
+                broad = [{LABELS[i]:float(p) for i,p in enumerate(row)} for row in values]
+            result.extend(self._route_with_broad(t,b) for t,b in zip(normalized,broad))
+        return result
+
+    def _route_with_broad(self, t: str, broad: Dict[str, float]) -> RouteResult:
         scores = {pool: 0.0 for pool in self.pool_names}
 
         for label, value in broad.items():

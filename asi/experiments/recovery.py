@@ -12,7 +12,7 @@ from asi.taxonomy import digest
 from asi.models.olmoe_storage import load_disk_backed
 from asi.models.hf_olmoe import OlmoeExpertCache, CategoryCalibration
 from asi.models.recovery_lora import ExpertLoRA
-from asi.experiments.recovery_protocol import TeacherRow, teacher_identity, training_order, task_metrics, padded_batch
+from asi.experiments.recovery_protocol import TeacherRow, teacher_identity, training_order, task_metrics, padded_batch, durable_save, select_teacher_entries
 from asi.experiments.public_moe import read_lock, input_ids, choose_capacity, hardware, check_rss, decode, sha256
 
 
@@ -36,6 +36,26 @@ def read_examples(path):
         if any(len(splits)>1 for splits in membership.values()):
             raise ValueError('Cross-split '+field+' leakage')
     return content
+
+
+def select_examples(corpus, ids):
+    if not isinstance(ids,list) or not ids or any(not isinstance(i,str) for i in ids) or len(set(ids))!=len(ids):
+        raise ValueError('Subset requires unique nonempty string IDs')
+    wanted=set(ids)
+    rows=[r for r in corpus['examples'] if r['id'] in wanted]
+    if len(rows)!=len(ids): raise ValueError('Unknown subset IDs')
+    categories={r['category'] for r in corpus['examples']}
+    if {(r['split'],r['category']) for r in rows}!={(s,c) for s in ('train','dev','test') for c in categories}:
+        raise ValueError('Subset must cover every category in train/dev/test')
+    return dict(corpus,examples=rows)
+
+
+def execution_masks(mappings, requested=None):
+    if requested is None: return mappings
+    keys=[str(k) for k in requested]
+    if not keys or len(set(keys))!=len(keys) or not set(keys)<=set(mappings):
+        raise ValueError('Requested evaluation masks must be unique members of the checkpoint mask bank')
+    return {key:mappings[key] for key in keys}
 
 
 def supervised_rows(corpus, tokenizer, max_length):
@@ -104,6 +124,8 @@ def compare_reports(paths):
             raise ValueError('Teacher references differ')
         if any(report['settings'].get(k,0)!=first['settings'].get(k,0) for k in ('curriculum_32_steps','teacher_eos')):
             raise ValueError('Curriculum or teacher objective differs')
+        if any(report['settings'].get(k)!=first['settings'].get(k) for k in ('paired_example_order','train_mask')):
+            raise ValueError('Training schedule differs; use a curriculum comparison')
         if report['identity']!=first['identity'] or any(report['settings'][k]!=first['settings'][k] for k in settings):
             raise ValueError('Different data, masks, source or training/generation protocol')
         if [(r['id'],r['mask']) for r in report['steps']]!=[(r['id'],r['mask']) for r in first['steps']]:
@@ -218,11 +240,15 @@ def main():
     p.add_argument('--model-dir', type=Path, default=ROOT/'public_models/olmoe')
     p.add_argument('--study', type=Path, default=ROOT/'results/olmoe_routing_study_v1.json')
     p.add_argument('--examples', type=Path, default=ROOT/'configs/recovery_pilot_v1.json')
+    p.add_argument('--example-ids', type=Path, help='Frozen balanced pilot IDs; preserves parent corpus and teacher identity')
+    p.add_argument('--eval-mask-sizes',type=int,nargs='+',help='Evaluate only these checkpoint masks; keeps full adapter identity')
     p.add_argument('--teacher-dir', type=Path, default=ROOT/'results/recovery_teacher_v1')
     p.add_argument('--resume-teacher', action='store_true', help='Reuse verified examples from a partial teacher manifest')
     p.add_argument('--teacher-eos', action='store_true', help='V3 shared native teacher with EOS, independent of student masks')
     p.add_argument('--prepare-limit', type=int, default=0, help='Profile N new teacher examples; partial manifests cannot train')
     p.add_argument('--curriculum-32-steps', type=int, default=0, help='Start with 32 residents, then mix 32/16')
+    p.add_argument('--paired-example-order', action='store_true', help='Keep example order identical across mask schedules')
+    p.add_argument('--train-mask', choices=['16','32'], help='Train only this mask; still evaluate all --mask-sizes')
     p.add_argument('--output', type=Path, required=True)
     p.add_argument('--checkpoint', type=Path)
     p.add_argument('--supervised', action='store_true', help='Assistant-token CE plus EOS, no teacher preparation')
@@ -230,6 +256,8 @@ def main():
     p.add_argument('--rank', type=int, default=8)
     p.add_argument('--mask-sizes', type=int, nargs='+', help='Train/evaluate each calibrated resident selection, e.g. 32 16')
     p.add_argument('--generation-per-category', type=int, default=1)
+    p.add_argument('--generation-selection', action='store_true', help='Select on declared dev generation proxies, then CE; not semantic quality')
+    p.add_argument('--dev-generation-per-category', type=int, default=2)
     p.add_argument('--skip-generation', action='store_true', help='Evaluate checkpoint losses and transitions without repeating free generation')
     p.add_argument('--calibration-per-category', type=int, default=4)
     p.add_argument('--reference-batch-size', type=int, default=1, help='Batch native calibration/teacher forwards; not student training')
@@ -245,6 +273,9 @@ def main():
     p.add_argument('--ram-gib', type=float, default=32)
     p.add_argument('--expert-ram-gib', type=float, default=.25, help='Upper bound for adaptive RAM expert cache, not a reservation')
     args = p.parse_args()
+    if args.eval_mask_sizes is not None and args.action!='evaluate': p.error('--eval-mask-sizes is only for evaluate')
+    if args.generation_selection and (args.action!='train' or args.dev_generation_per_category<1):
+        p.error('Generation selection requires train and positive dev generation count')
     if args.action=='compare':
         if args.output.exists() or not args.reports: p.error('Provide --reports and a fresh output directory')
         comparison=compare_reports(args.reports)
@@ -269,6 +300,8 @@ def main():
     if args.curriculum_32_steps < 0 or (args.curriculum_32_steps and
             (set(args.mask_sizes or [])!={32,16} or args.curriculum_32_steps>=args.steps)):
         p.error('Curriculum requires --mask-sizes 32 16 and warmup smaller than --steps')
+    if args.train_mask and (not args.paired_example_order or args.curriculum_32_steps or int(args.train_mask) not in (args.mask_sizes or [])):
+        p.error('--train-mask requires --paired-example-order, matching --mask-sizes and no curriculum')
     if args.mask_sizes and (args.experts not in args.mask_sizes or min(args.mask_sizes)<args.active or len(set(args.mask_sizes))!=len(args.mask_sizes)):
         p.error('Unique mask sizes must include --experts and be at least --active')
     if args.output.exists() or min(args.steps,args.eval_interval,args.experts,args.active,args.max_length,args.new_tokens,args.lr,args.ram_gib)<=0 or not 0<=args.alpha<=1:
@@ -282,6 +315,11 @@ def main():
     torch.manual_seed(args.seed)
     source = digest(read_lock(args.model_dir))
     corpus = read_examples(args.examples)
+    subset_ids=json.loads(args.example_ids.read_text(encoding='utf8')) if args.example_ids else None
+    selected=select_examples(corpus,subset_ids) if subset_ids is not None else corpus
+    if args.example_ids and args.action=='calibrate': p.error('Calibrate on the parent train split before selecting pilot examples')
+    if args.example_ids and not args.supervised and not args.teacher_eos:
+        p.error('Subset distillation requires the shared v3 teacher with EOS')
     if args.action == 'calibrate':
         hw = hardware(args.model_dir,args.ram_gib)
         if not hw['gpu'] or args.calibration_per_category < 1: p.error('CUDA and positive calibration count required')
@@ -327,6 +365,7 @@ def main():
         p.error('Calibration includes examples outside train')
     mapping = study['mappings'][str(args.experts)]
     mappings = {str(k): study['mappings'][str(k)] for k in (args.mask_sizes or [args.experts])}
+    runtime_mappings=execution_masks(mappings,args.eval_mask_sizes)
     if any(r['category'] not in mapping for r in corpus['examples']):
         p.error('Corpus category absent from calibrated mapping')
     if args.active>args.experts:
@@ -336,11 +375,12 @@ def main():
     if args.supervised: identity['objective'] = 'assistant_ce_with_eos'
     elif args.teacher_eos: identity['objective'] = 'assistant_ce_native_kl_eos_v3'
     if args.mask_sizes: identity['mask_bank'] = digest(mappings)
+    if subset_ids is not None: identity['evaluation_subset']=digest(sorted(subset_ids))
     hw = hardware(args.model_dir,args.ram_gib)
     if not hw['gpu']:
         p.error('CUDA required')
     model, tokenizer, store = load_disk_backed(args.model_dir, int(args.expert_ram_gib*2**30), int(args.ram_gib*2**30))
-    capacity = max(map(int, mappings))
+    capacity = max(map(int, runtime_mappings))
     choose_capacity(model,capacity,hw['gpu']['free_bytes'],2*2**30)
     cache = OlmoeExpertCache(model,capacity=capacity*model.config.num_hidden_layers,store=store)
     device = torch.device('cuda')
@@ -355,7 +395,7 @@ def main():
     save()
     try:
         if args.action=='native':
-            rows=supervised_rows(corpus,tokenizer,args.max_length)
+            rows=supervised_rows(selected,tokenizer,args.max_length)
             test=[r for r in rows if r['split']=='test']
             report.update(records=[],generations=[])
             counts={}
@@ -366,11 +406,14 @@ def main():
                 category=row['category']
                 if counts.get(category,0)<args.generation_per_category:
                     before=cache.snapshot()
+                    torch.cuda.reset_peak_memory_stats()
                     with torch.autocast('cuda',dtype=torch.bfloat16):
                         generated=decode(model,torch.tensor([row['tokens'][:row['prompt_length']]]),args.new_tokens,'cuda',
                                          stop_token_ids=[tokenizer.eos_token_id])
                     text=tokenizer.decode(generated['token_ids'],skip_special_tokens=True)
                     report['generations'].append({'id':row['id'],'stage':'native','mask':'native',**generated,
+                        'peak_cuda_allocated_bytes':torch.cuda.max_memory_allocated(),
+                        'peak_cuda_reserved_bytes':torch.cuda.max_memory_reserved(),
                         'text':text,**generation_metrics(generated['token_ids'],text,row),
                         'cache_before':before,'cache_after':cache.snapshot()})
                     counts[category]=counts.get(category,0)+1
@@ -393,15 +436,13 @@ def main():
             elif args.resume_teacher:
                 raise ValueError('Resuming requires a verified manifest')
             def save_manifest(completed=False):
-                pending=manifest_path.with_suffix('.tmp')
-                pending.write_text(json.dumps({'identity':teacher_identity(identity,args.teacher_eos),'entries':entries,'completed':completed},indent=2))
-                pending.replace(manifest_path)
+                durable_save(manifest_path,{'identity':teacher_identity(identity,args.teacher_eos),'entries':entries,'completed':completed})
             save_manifest()
             prepared_now=0
             started=time.perf_counter()
             done={e['id'] for e in entries}
             pending_rows=[]
-            for row in corpus['examples']:
+            for row in selected['examples']:
                 if row['id'] in done: continue
                 prompt = input_ids(tokenizer,row['prompt'],limit=args.max_length)[0].tolist()
                 answer = tokenizer.encode(row['answer'],add_special_tokens=False)
@@ -419,7 +460,8 @@ def main():
                 for i,row in enumerate(batch):
                     logp=logits[i,row['prompt_length']-1:len(row['tokens'])-1].float().log_softmax(-1).cpu()
                     filename=row['id']+'.pt'
-                    torch.save({**row,'teacher_logp':logp},args.teacher_dir/filename)
+                    durable_save(args.teacher_dir/filename,{**row,'teacher_logp':logp,
+                        'teacher_identity':teacher_identity(identity,args.teacher_eos)},tensor=True)
                     entries.append({'id':row['id'],'split':row['split'],'file':filename,'sha256':sha256(args.teacher_dir/filename)})
                     save_manifest()
                     prepared_now+=1
@@ -429,6 +471,7 @@ def main():
             report['new_teacher_examples']=prepared_now
             if len(entries)<len(corpus['examples']):
                 report.update(teacher_examples=len(entries),completed=False,
+                    subset_completed=subset_ids is not None and set(subset_ids)<={e['id'] for e in entries},
                     continuation='Use --resume-teacher with the same teacher-dir and a fresh output directory')
                 save()
                 return
@@ -436,20 +479,19 @@ def main():
             report['teacher_examples']=len(entries)
         else:
             if args.supervised:
-                rows=supervised_rows(corpus,tokenizer,args.max_length)
+                rows=supervised_rows(selected,tokenizer,args.max_length)
             else:
                 manifest=json.loads((args.teacher_dir/'manifest.json').read_text())
-                if not manifest.get('completed') or manifest['identity']!=teacher_identity(identity,args.teacher_eos):
-                    raise ValueError('Teacher identity differs from source, corpus or mapping')
                 rows=[]
-                expected={r['id']:r for r in corpus['examples']}
-                if {e['id'] for e in manifest['entries']}!=set(expected) or len(manifest['entries'])!=len(expected):
-                    raise ValueError('Teacher examples differ from corpus')
-                for entry in manifest['entries']:
+                expected={r['id']:r for r in selected['examples']}
+                entries=select_teacher_entries(manifest,teacher_identity(identity,args.teacher_eos),expected,subset_ids is not None)
+                for entry in entries:
                     path=(args.teacher_dir/entry['file']).resolve()
                     if not path.is_relative_to(args.teacher_dir.resolve()) or sha256(path)!=entry['sha256']:
                         raise ValueError('Teacher shard changed or escaped directory')
                     row=torch.load(path,map_location='cpu',weights_only=True)
+                    if subset_ids is not None and row.get('teacher_identity')!=teacher_identity(identity,args.teacher_eos):
+                        raise ValueError('Pilot shard lacks matching embedded teacher identity')
                     if any(row.get(k)!=v for k,v in expected[entry['id']].items()):
                         raise ValueError('Teacher text, category or split changed')
                     if row['teacher_logp'].shape != (len(row['tokens'])-row['prompt_length'],model.config.vocab_size):
@@ -461,10 +503,18 @@ def main():
                 for parameter in parameters: parameter.requires_grad_(False)
                 parameters=[]
             adapter = ExpertLoRA(model,mappings,args.rank) if args.adaptation != 'router' else None
+            # Keep the full adapter parameter bank for strict checkpoint loading,
+            # but reserve/cache/evaluate only the requested resident masks.
+            if args.action=='evaluate': mappings=runtime_mappings
             cache.expert_adapter=adapter
             if adapter is not None: parameters+=list(adapter.parameters())
             initial=adaptation_state(model,adapter)
             report['trainable_parameters']=sum(p.numel() for p in parameters)
+            report['trainable_scope']={
+                'router_parameters':sum(p.numel() for layer in model.model.layers for p in [layer.mlp.gate.weight] if p.requires_grad),
+                'expert_lora_parameters':sum(p.numel() for p in adapter.parameters()) if adapter is not None else 0,
+                'base_experts_attention_embeddings_norms_lm_head':'frozen',
+                'lora_target':'expert down projection only', 'lora_rank':args.rank}
             report['adapter_parameter_bytes']=sum(p.numel()*p.element_size() for p in adapter.parameters()) if adapter is not None else 0
             if not args.supervised: report['teacher_manifest_sha256']=sha256(args.teacher_dir/'manifest.json')
             if args.action=='train':
@@ -476,8 +526,20 @@ def main():
                 best=1. if robust_selection else baseline['mean_loss']
                 best_state=initial; best_step=0
                 report.update(dev_before=baseline,steps=[],dev_checks=[],train_ids=[r['id'] for r in train])
+                if args.generation_selection:
+                    from asi.experiments.recovery_selection import dev_generations, selection_key
+                    generations=dev_generations(model,cache,dev,mappings,args.active,tokenizer,args.new_tokens,args.dev_generation_per_category)
+                    best=selection_key(generations,baseline,baseline)
+                    report['dev_generation_checks']=[dict(step=0,selection_key=best,records=generations)]
+                    report['selection_contract']='lexicographic dev numeric error, worst-category repetition, format error, worst relative CE; not semantic correctness'
+                    durable_save(args.output/'adaptation_step_0000.pt',
+                                 {'schema':2,'identity':identity,**initial,'selected_step':0,'alpha':args.alpha,
+                                  'selection':'development baseline; not test selected',
+                                  'recovery_settings':{k:getattr(args,k) for k in ('supervised','adaptation','rank','mask_sizes','teacher_eos')}},tensor=True)
+                    save()
                 optimizer=torch.optim.AdamW(parameters,lr=args.lr,weight_decay=0)
-                order=training_order(len(train),mappings,args.steps,args.seed,args.curriculum_32_steps)
+                order=training_order(len(train),mappings,args.steps,args.seed,args.curriculum_32_steps,
+                                     args.paired_example_order,args.train_mask)
                 torch.cuda.reset_peak_memory_stats()
                 training_started=time.perf_counter()
                 for step in range(args.steps):
@@ -501,6 +563,14 @@ def main():
                         score=robust_score(result,baseline)
                         result['worst_group_ratio']=score
                         if not robust_selection: score=result['mean_loss']
+                        if args.generation_selection:
+                            generations=dev_generations(model,cache,dev,mappings,args.active,tokenizer,args.new_tokens,args.dev_generation_per_category)
+                            score=selection_key(generations,result,baseline)
+                            report['dev_generation_checks'].append(dict(step=step+1,selection_key=score,records=generations))
+                            durable_save(args.output/f'adaptation_step_{step+1:04d}.pt',
+                                         {'schema':2,'identity':identity,**adaptation_state(model,adapter),'selected_step':step+1,
+                                          'alpha':args.alpha,'selection':'development checkpoint; not test selected',
+                                          'recovery_settings':{k:getattr(args,k) for k in ('supervised','adaptation','rank','mask_sizes','teacher_eos')}},tensor=True)
                         print(f"Validation {step+1}: loss={result['mean_loss']:.4f}",flush=True)
                         report['dev_checks'].append({'step':step+1,**result})
                         if score<best:
@@ -509,13 +579,17 @@ def main():
                 checkpoint={'schema':2,'identity':identity,**best_state,'selected_step':best_step,
                             'selection':('minimum worst relative dev loss across category/mask groups' if robust_selection else 'minimum mean dev loss')+', including step zero','alpha':args.alpha,
                             'recovery_settings':{k:getattr(args,k) for k in ('supervised','adaptation','rank','mask_sizes','teacher_eos')}}
+                if args.generation_selection:
+                    checkpoint['selection']=report['selection_contract']+', including step zero'
+                    report['dev_best_generation_key']=best
                 prefix='router' if adapter is None else 'adaptation'
                 torch.save(checkpoint,args.output/(prefix+'_best.pt'))
                 torch.save({**checkpoint,**adaptation_state(model,adapter),'selected_step':args.steps,
                             'selection':'last training step; not selected using test'},args.output/(prefix+'_last.pt'))
                 report.update(selected_step=best_step,peak_cuda_bytes=torch.cuda.max_memory_allocated(),
                               training_with_validation_seconds=time.perf_counter()-training_started)
-                report['dev_best_worst_group_ratio' if robust_selection else 'dev_best_loss']=best
+                if not args.generation_selection:
+                    report['dev_best_worst_group_ratio' if robust_selection else 'dev_best_loss']=best
             else:
                 checkpoint=loaded_checkpoint
                 if checkpoint['identity']!=identity:
@@ -541,14 +615,21 @@ def main():
                 for mask_name,selected in mappings.items():
                     for row in generation_rows:
                         print(f"Generation {name}: {row['id']}",flush=True)
+                        torch.cuda.synchronize(); prepare_started=time.perf_counter()
                         cache.set_context(selected[row['category']],mixture='restricted',active=args.active)
+                        torch.cuda.synchronize(); prepare_seconds=time.perf_counter()-prepare_started
                         before=cache.snapshot()
+                        torch.cuda.reset_peak_memory_stats()
                         with torch.autocast('cuda',dtype=torch.bfloat16):
                             generation=decode(model,torch.tensor([row['tokens'][:row['prompt_length']]]),args.new_tokens,'cuda',
                                               stop_token_ids=[tokenizer.eos_token_id] if args.supervised or args.teacher_eos else None)
                         after=cache.snapshot()
                         if after['loads']!=before['loads']: raise RuntimeError('Expert loads during generation')
                         report['generations'].append({'stage':name,'id':row['id'],'mask':mask_name,**generation,'text':tokenizer.decode(generation['token_ids']),
+                                                      'prepare_seconds':prepare_seconds,
+                                                      'peak_cuda_allocated_bytes':torch.cuda.max_memory_allocated(),
+                                                      'peak_cuda_reserved_bytes':torch.cuda.max_memory_reserved(),
+                                                      'memory_scope':'current process; optimizer/gradients may remain resident after training' if args.action=='train' else 'standalone evaluation process',
                                                       **generation_metrics(generation['token_ids'],tokenizer.decode(generation['token_ids'],skip_special_tokens=True),row),
                                                       'cache_before':before,'cache_after':after})
                         save()

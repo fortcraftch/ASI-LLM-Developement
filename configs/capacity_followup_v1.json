@@ -1,0 +1,22 @@
+{
+  "purpose": "Test persistence and category dependence of early routing concentration, not final language quality",
+  "variants": ["capacity_h120_k2_uniform_pool", "capacity_h120_k2_learned"],
+  "initialization_seeds": [1337, 2027, 31415],
+  "data_seed": 1337,
+  "steps": 128,
+  "eval_interval": 32,
+  "batch_size": 2,
+  "seq_len": 128,
+  "accumulation": 4,
+  "val_batches": 8,
+  "lr": 0.0001,
+  "warmup_steps": 4,
+  "primary_diagnostics": [
+    "Effective experts per layer in each 32-update interval",
+    "Normalized mutual information between input pool and selected expert",
+    "Mean selected mixture weight mass",
+    "Paired held-out NLL differences across initialization seeds"
+  ],
+  "controls": "Same frozen windows and order for all runs; identical common initial weights within each seed pair; native routing semantics unchanged",
+  "limitations": "One local data sample, short context, no balancing auxiliary loss, no language-quality claim; free softmax and uniform routing differ in mixture normalization"
+}

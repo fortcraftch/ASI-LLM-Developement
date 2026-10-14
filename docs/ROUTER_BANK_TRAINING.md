@@ -72,4 +72,87 @@ python -m asi chat router \
 Este diseño puede ahorrar memoria residente, pero cada respuesta dispone de
 solo 15,5M parámetros de LLM. No presupone que alcance la calidad de un modelo
 de 124M activo por completo. Su entrenamiento y evaluación constituyen la
-tercera rama del experimento; todavía no hay resultados de calidad de este banco.
+tercera rama del experimento. Los ocho checkpoints recibidos el 12/10/2026
+superan la auditoría de integridad, receta, pasos, carga estricta y pesos finitos
+(`results/router_124m_audit_20261012/report.json`). Esto no demuestra calidad.
+
+## Evaluación con el protocolo compartido
+
+Primera ejecución completa de los splits usados por el evaluador local,
+12/10/2026, residencia de un modelo, lotes 4/512:
+
+| Tarea | Preguntas | Acierto |
+|---|---:|---:|
+| HellaSwag (normalizado) | 10.042 | 25,55% |
+| LAMBADA | 5.153 | 4,91% |
+| PIQA | 1.838 | 56,58% |
+| ARC-Easy | 570 | 38,95% |
+| BoolQ | 3.270 | 39,45% |
+| Aritmética sintética | 500 | 0,00% |
+
+Fuente: `results/router_124m_audit_20261012/eval_full_six_selected_retry.json`,
+`completed=true`. Pico CUDA asignado: 1061,38 MiB, incluido clasificador y
+activaciones. ARC-Easy utiliza el split de 570 preguntas del evaluador, no
+su test de 2376. Estas seis tareas no son la suite de 19; tampoco deben
+compararse directamente con porcentajes de 100 preguntas de otros modelos.
+La selección por categoría predicha y el agrupamiento de peticiones siguen
+siendo limitaciones del protocolo. No es una prueba de velocidad repetida.
+
+```bash
+python -m asi bank-audit --bank results/router_124m_seed1337/router_bank.json \
+  --output results/router_bank_audit_new/report.json
+python -m asi bank-eval --bank results/router_124m_seed1337/router_bank.json \
+  --audit results/router_bank_audit_new/report.json \
+  --tasks hellaswag,lambada,piqa,arc_easy,boolq,arithmetic --limit 100 \
+  --output results/router_bank_audit_new/eval_100.json
+```
+
+`--tasks all --limit 0` solicita la suite completa del evaluador de GPT-2;
+no confundir un subconjunto de 100 preguntas con esa ejecución. Para usar
+exclusivamente el caché compartido, configurar `HF_DATASETS_CACHE` con la ruta
+absoluta de `results/hf_datasets_cache` y `HF_HUB_OFFLINE=1`,
+`HF_DATASETS_OFFLINE=1`; solo funcionará con datasets previamente descargados.
+
+El evaluador mantiene los ocho modelos en GPU para acelerar las pruebas,
+ejecuta uno por enunciado y agrupa peticiones por especialista. Reutiliza
+exactamente el motor de benchmarks de ASI/DeepSeek. Registra hashes de pesos,
+evaluador, auditoría y manifiesto, huellas de datasets, categorías seleccionadas,
+memoria del clasificador por separado y tiempos que incluyen clasificación y
+carga de datos. No es una medición de swapping ni de ahorro de VRAM del banco.
+
+`--residency selected` conserva los pesos de los otros siete modelos en RAM
+y mueve a GPU únicamente el seleccionado (el clasificador tiene coste aparte).
+Las activaciones del mismo modelo son hits sin nueva transferencia. El informe
+separa preparación de evaluación y registra cargas, expulsiones y bytes lógicos
+de pesos en ambas direcciones; no incluye buffers en esos contadores ni mide
+el tráfico físico PCIe. Los lotes están agrupados por categoría: sus cambios
+no representan el patrón de una conversación real. Un control de igualdad de
+puntuaciones frente a `--residency all` debe preceder a conclusiones de memoria.
+
+Control ejecutado sobre PIQA (100 preguntas): con lotes iguales 4/512, las 200
+NLL de continuaciones y las 100 decisiones son exactamente iguales entre
+`all` y `selected`. Con 8/2048 cambian 188 NLL y dos decisiones, con categorías
+idénticas; el delta absoluto máximo de NLL media es 0,0320. Esto localiza la
+diferencia observada de 56% a 54% en el batching, no en la residencia. BF16
+estaba habilitado, pero falta aislar el kernel y comprobar FP32 para explicar
+su origen numérico. Fuente: `piqa_trace_comparison.json` en la auditoría.
+
+Control posterior FP32, TF32 desactivado: los dos tamaños de lote obtienen
+54/100, sin cambios de decisión y con delta NLL medio máximo de 1,91e-6.
+BF16 daba delta 0,0320 y dos cambios; mismo routing y checkpoints. Esto respalda
+sensibilidad a la precisión, aunque no identifica el kernel responsable ni
+garantiza invariancia en todas las tareas. `--precision fp32` permite reproducir
+este control también en generación; el valor predeterminado sigue siendo bf16
+para conservar el protocolo histórico. Evidencia: `piqa_precision_comparison.json`.
+
+Para analizar diferencias individuales, `--trace-dir results/nueva_traza` guarda
+por tarea los tokens de entrada, NLL de cada continuación y tokens generados.
+La ruta debe ser nueva; las huellas de esos archivos quedan en el informe.
+Esto permite detectar diferencias que dos porcentajes agregados iguales podrían
+ocultar. El registro se realiza después de puntuar y no participa en el routing.
+
+`--declared-routes annotations.json` permite un control con categorías externas:
+objeto JSON que asocia SHA256 del texto UTF-8 de cada contexto a un pool.
+Se rechazan entradas sin anotación, sin recurrir al clasificador. Las anotaciones
+deben revisarse antes de mirar resultados; no se asigna automáticamente una
+categoría «correcta» por el nombre del benchmark ni por su respuesta.

@@ -59,6 +59,75 @@ def validate_checkpoint(path, job):
     return int(checkpoint['step']) + 1
 
 
+def audit_main():
+    """Verify a copied bank against frozen recipes without changing its files."""
+    import hashlib
+    import torch
+    from asi.runtime.generation import load_model, validate_pool_identity
+    p = argparse.ArgumentParser(description=audit_main.__doc__)
+    p.add_argument('--bank', type=Path, required=True)
+    p.add_argument('--config-dir', type=Path, default=Path('configs/experiment_124m_v1'))
+    p.add_argument('--output', type=Path, required=True)
+    a = p.parse_args()
+    if a.output.exists():
+        p.error('Use a new report path to preserve previous evidence')
+    a.output.parent.mkdir(parents=True, exist_ok=True)
+    saved = read(a.bank.parent / 'plan.json')
+    expected = plan_bank(a.config_dir, saved['batch_size'])
+    if any(saved.get(k) != v for k, v in expected.items()):
+        p.error('Copied plan differs from frozen recipes')
+    bank = read(a.bank)
+    if set(bank) != set(expected['pool_order']):
+        p.error('Bank pool keys differ from frozen recipes')
+    report = {'complete': False, 'models': [], 'errors': [],
+              'bank': str(a.bank.resolve()), 'parameters_expected': expected['parameters'],
+              'limitations': ['Integrity and training completion only; not a quality benchmark.']}
+    seen = set()
+    torch.set_num_threads(4)
+    for job in expected['jobs']:
+        row = {'pool': job['pool'], 'expected_steps': job['steps']}
+        try:
+            value = bank[job['pool']]
+            if not value:
+                raise ValueError('No registered checkpoint')
+            path = (a.bank.parent / value).resolve()
+            if path in seen:
+                raise ValueError('Checkpoint reused for multiple pools')
+            seen.add(path)
+            row['checkpoint'] = str(path)
+            row['completed_steps'] = validate_checkpoint(path, job)
+            if row['completed_steps'] < job['steps']:
+                raise ValueError('Training is incomplete')
+            with path.open('rb') as stream:
+                fingerprint = hashlib.sha256()
+                for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                    fingerprint.update(chunk)
+                row['sha256'] = fingerprint.hexdigest()
+            model, metadata = load_model(path)
+            validate_pool_identity(model, metadata, expected['pool_order'])
+            row['parameters'] = sum(v.numel() for v in model.parameters())
+            row['weight_bytes'] = sum(v.numel() * v.element_size() for v in model.parameters())
+            row['checkpoint_bytes'] = path.stat().st_size
+            row['val_loss'] = metadata.get('val_loss')
+            if model.config.n_dense_layers != model.config.n_layer or row['parameters'] != job['parameters']:
+                raise ValueError('Architecture or parameter count mismatch')
+            if not all(torch.isfinite(v).all().item() for v in model.parameters()):
+                raise ValueError('Nonfinite model weights')
+            del model
+            row['status'] = 'verified'
+        except (ValueError, OSError, RuntimeError, KeyError) as exc:
+            row['status'] = 'failed'
+            row['error'] = str(exc)
+            report['errors'].append(job['pool'] + ': ' + str(exc))
+        report['models'].append(row)
+        atomic_json(a.output, report)
+        print(json.dumps(row), flush=True)
+    report['complete'] = not report['errors']
+    atomic_json(a.output, report)
+    if not report['complete']:
+        raise SystemExit(1)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--config-dir', type=Path, default=Path('configs/experiment_124m_v1'))

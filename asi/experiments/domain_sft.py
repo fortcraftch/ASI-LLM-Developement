@@ -95,6 +95,17 @@ def prepare(a):
     print(json.dumps({s:{k:v for k,v in x.items() if k!='records'} for s,x in metadata['splits'].items()},indent=2))
 
 
+def configure_trainable(model, router_only=False):
+    if router_only:
+        model.requires_grad_(False)
+        model.config.routing_mode = 'learned'
+    for gate in (m for m in model.modules() if isinstance(m, Gate)):
+        if router_only:
+            gate.routing_mode = 'learned'
+        for param in gate.parameters():
+            param.requires_grad_(router_only)
+
+
 def train(a):
     if a.output.exists(): raise ValueError('Use a fresh output directory; base checkpoint is never overwritten')
     meta=json.loads((a.data/'manifest.json').read_text(encoding='utf-8'))
@@ -112,8 +123,7 @@ def train(a):
     model.load_state_dict(ckpt['model'])
     validate_pool_identity(model,ckpt,meta['pool_names'])
     base_step=ckpt['step'];del ckpt
-    for gate in (m for m in model.modules() if isinstance(m,Gate)):
-        for param in gate.parameters(): param.requires_grad_(False)
+    configure_trainable(model, a.router_only)
     for layer in model.layers:
         if hasattr(layer.ffn,'moe_backend'): layer.ffn.moe_backend='bmm'
     model.to(a.device)
@@ -125,16 +135,16 @@ def train(a):
     pool_cursors=dict.fromkeys(pool_orders,0)
     exposures=Counter()
     a.output.mkdir(parents=True)
-    report={'kind':'domain_oasst_sft','completed':False,'source_checkpoint':str(a.checkpoint),
+    report={'kind':'domain_router_oasst' if a.router_only else 'domain_oasst_sft','completed':False,'source_checkpoint':str(a.checkpoint),
         'source_sha256':sha256(a.checkpoint),'base_step':base_step,'data_manifest_sha256':sha256(a.data/'manifest.json'),
         'settings':vars(a),'pool_names':meta['pool_names'],'updates':[], 'validation':[],
         'trainable_parameters':sum(p.numel() for p in model.parameters() if p.requires_grad),
         'selection':'minimum assistant-token weighted validation NLL, including step 0',
-        'routing':'unchanged uniform_pool; backbone/shared and selected expert weights trained, gate frozen'}
+        'routing':('learned top-2 across all pools; only gate parameters trained' if a.router_only else 'unchanged uniform_pool; backbone/shared and selected expert weights trained, gate frozen')}
     # vars contains paths; normalize once for portable checkpoint metadata.
     report['settings']=json.loads(json.dumps(report['settings'],default=str))
     def row(split,index):
-        data=splits[split]; model.set_active_pools([int(data['pools'][index])])
+        data=splits[split]; model.set_active_pools(list(range(config.n_pools)) if a.router_only else [int(data['pools'][index])])
         # Remove right padding only; preserve exactly the GPT-2 target mask.
         end=int(np.flatnonzero(data['masks'][index])[-1])+1
         return [torch.tensor(data[k][index:index+1,:end].astype(np.int64),device=a.device) for k in ['tokens','targets','masks']]
@@ -151,7 +161,7 @@ def train(a):
         if a.device.startswith('cuda'): torch.cuda.synchronize()
         durable_save(a.output/name,{'model':{k:v.detach().cpu() for k,v in model.state_dict().items()},
             'config':asdict(config),'step':step,'val_loss':loss,'pool_names':meta['pool_names'],
-            'experiment':'domain_oasst_sft','sft_provenance':{k:report[k] for k in ['source_sha256','base_step','data_manifest_sha256','settings','routing']}},tensor=True)
+            'experiment':report['kind'],'sft_provenance':{k:report[k] for k in ['source_sha256','base_step','data_manifest_sha256','settings','routing']}},tensor=True)
     best,by_pool=evaluate();best_step=0;bad=0
     report['validation'].append({'step':0,'nll':best,'by_pool':by_pool});save_weights('best.pt',0,best)
     started=time.perf_counter()
@@ -206,6 +216,7 @@ def main():
     p.add_argument('--train-examples',type=int,default=1024,help='0 = full split')
     p.add_argument('--val-examples',type=int,default=128,help='0 = full split')
     p.add_argument('--min-examples-per-pool',type=int,default=0,help='Reserve coverage within each original split; may classify extra candidates')
+    p.add_argument('--router-only',action='store_true',help='Train only E across all pools; freeze every other weight')
     p.add_argument('--sampling',choices=['sequential','uniform-pool'],default='sequential')
     p.add_argument('--steps',type=int,default=200)
     p.add_argument('--accumulation',type=int,default=4)

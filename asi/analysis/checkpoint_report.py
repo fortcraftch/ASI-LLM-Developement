@@ -6,6 +6,71 @@ import statistics
 from pathlib import Path
 
 
+def compare_full_suite(variants, expected_tasks):
+    """Validate complete local suites before comparing quality, never timing.
+
+    Each variant supplies disjoint report blocks. Checkpoint-eval blocks must
+    contain exactly one mode so the caller cannot silently select a policy.
+    This verifies recorded provenance, not training equivalence or input order.
+    """
+    expected = set(expected_tasks)
+    if not expected or len(variants) < 2:
+        raise ValueError('Require tasks and at least two variants')
+    merged = {}
+    common_evaluator = None
+    common_datasets = None
+    for label, blocks in variants.items():
+        tasks, datasets = {}, {}
+        identity = None
+        for report in blocks:
+            if report.get('completed') is not True or report.get('limit', 'missing') is not None:
+                raise ValueError('Require completed full reports: '+label)
+            evaluator = report.get('evaluator_sha256')
+            checkpoint = report.get('checkpoint_sha256')
+            if not evaluator or not checkpoint:
+                raise ValueError('Missing evaluator/checkpoint identity: '+label)
+            if common_evaluator is None:
+                common_evaluator = evaluator
+            if evaluator != common_evaluator:
+                raise ValueError('Different evaluators')
+            if identity is None:
+                identity = checkpoint
+            if checkpoint != identity:
+                raise ValueError('Different checkpoints within variant: '+label)
+            if 'results' in report:
+                if len(report['results']) != 1:
+                    raise ValueError('Select exactly one mode: '+label)
+                values = next(iter(report['results'].values()))['tasks']
+            else:
+                values = report['tasks']
+            if tasks.keys() & values.keys():
+                raise ValueError('Overlapping task blocks: '+label)
+            for task, result in values.items():
+                if 'error' in result or result.get('total', 0) <= 0:
+                    raise ValueError('Invalid task result: '+task)
+                score = result.get('accuracy_norm', result.get('accuracy'))
+                if not isinstance(score, (int, float)) or not math.isfinite(score) or not 0 <= score <= 1:
+                    raise ValueError('Invalid accuracy: '+task)
+            tasks.update(values)
+            for key, fingerprint in report.get('datasets', {}).items():
+                if key in datasets and datasets[key] != fingerprint:
+                    raise ValueError('Dataset changed across blocks: '+key)
+                datasets[key] = fingerprint
+        if set(tasks) != expected or not datasets:
+            raise ValueError('Incomplete task or dataset coverage: '+label)
+        if common_datasets is None:
+            common_datasets = datasets
+        if datasets != common_datasets:
+            raise ValueError('Different dataset provenance: '+label)
+        merged[label] = tasks
+    for task in expected:
+        if len({tasks[task]['total'] for tasks in merged.values()}) != 1:
+            raise ValueError('Different example counts: '+task)
+        if len({'accuracy_norm' in tasks[task] for tasks in merged.values()}) != 1:
+            raise ValueError('Different accuracy definitions: '+task)
+    return merged
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--report',type=Path,required=True)

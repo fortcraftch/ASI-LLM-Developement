@@ -55,7 +55,7 @@ class OlmoeExpertCache:
                     indices = allowed[positions]
                     if self.mixture == 'restricted_native_mass':
                         weights = weights * native_weights.float().sum(-1, keepdim=True) / weights.sum(-1, keepdim=True).clamp_min(1e-20)
-                    elif model.config.norm_topk_prob:
+                    elif self.mixture == 'restricted_unit_mass' or model.config.norm_topk_prob:
                         weights = weights / weights.sum(-1, keepdim=True).clamp_min(1e-20)
                     weights = weights.to(hidden.dtype)
                 for callback in self.callbacks:
@@ -105,7 +105,7 @@ class OlmoeExpertCache:
         return tensors
 
     def set_context(self, layers=None, mixture='constant', active=None):
-        if mixture not in ('constant', 'restricted', 'restricted_native_mass'):
+        if mixture not in ('constant', 'restricted', 'restricted_native_mass', 'restricted_unit_mass'):
             raise ValueError('Unknown mixture policy')
         active = self.model.config.num_experts_per_tok if active is None else active
         if type(active) is not int or active < 1:

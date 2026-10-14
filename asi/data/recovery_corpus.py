@@ -148,3 +148,96 @@ def main():
     args.output.parent.mkdir(parents=True,exist_ok=True)
     args.output.write_text(json.dumps(corpus,indent=2,ensure_ascii=False),encoding='utf-8')
     print(json.dumps({k:v for k,v in corpus.items() if k not in ('examples','source_file_sha256')},indent=2))
+
+
+def reviewed_draft(corpus_path, review_path, replacement_paths):
+    """Apply explicitly hashed proposals to a new train-only draft, never promote it."""
+    def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+    def text_sha(value): return hashlib.sha256(value.encode()).hexdigest()
+    corpus = json.loads(corpus_path.read_text(encoding='utf-8'))
+    review = json.loads(review_path.read_text(encoding='utf-8'))
+    if sha(corpus_path) not in review['sources_sha256'].values():
+        raise ValueError('Corpus is not pinned by the reference review')
+    source = {r['id']: r for r in corpus['examples']}
+    if len(source) != len(corpus['examples']): raise ValueError('Duplicate source IDs')
+    records = {r['id']: r for r in review['records']}
+    if len(records) != len(review['records']): raise ValueError('Duplicate review IDs')
+    changes = {}
+    for path in replacement_paths:
+        for replacement in json.loads(path.read_text(encoding='utf-8'))['replacements']:
+            parent = replacement.get('parent_id', replacement.get('id'))
+            if parent not in records or parent in changes:
+                raise ValueError('Unknown or multiply replaced parent: '+str(parent))
+            row = source[parent]
+            if replacement['old_answer_sha256'] != text_sha(row['answer']):
+                raise ValueError('Old answer hash differs: '+parent)
+            if replacement.get('old_prompt_sha256', text_sha(row['prompt'])) != text_sha(row['prompt']):
+                raise ValueError('Old prompt hash differs: '+parent)
+            answer = replacement['new_answer']
+            prompt = replacement.get('new_prompt', row['prompt'])
+            if not answer.strip() or not prompt.strip(): raise ValueError('Empty replacement')
+            for field, value in [('answer',answer), ('prompt',prompt)]:
+                if replacement.get('new_'+field+'_sha256', text_sha(value)) != text_sha(value):
+                    raise ValueError('New text hash differs: '+parent)
+            if replacement.get('allowed_split', 'train') != 'train':
+                raise ValueError('Reviewed historical training examples must remain train-only')
+            targets = {}
+            for field in ('reference_tests', 'expected_number', 'expected_phrase'):
+                key = 'new_' + field
+                if key in replacement:
+                    value = replacement[key]
+                    valid = (isinstance(value, list) and bool(value) and
+                             all(isinstance(t, str) and t.strip() for t in value)) if field == 'reference_tests' else (
+                                 isinstance(value, str) and bool(value.strip()))
+                    if not valid: raise ValueError('Invalid replacement evaluation target: '+key)
+                    targets[field] = value
+            changes[parent] = (prompt, answer, str(path), targets)
+    rows = []
+    for parent, record in records.items():
+        row = source[parent]
+        if hashlib.sha256(json.dumps(row,sort_keys=True,ensure_ascii=False).encode()).hexdigest() != record['row_sha256']:
+            raise ValueError('Reviewed row differs: '+parent)
+        if row['split'] != 'train': raise ValueError('This draft accepts reviewed training rows only')
+        revised = dict(row, parent_id=parent, train_only=True, review_status=record['status'])
+        if parent in changes:
+            prompt, answer, path, targets = changes[parent]
+            revised.update(id=parent+'_review_v1', prompt=prompt, answer=answer,
+                           revision_source=path, review_status='replacement_pending_validation',
+                           teacher_recompute_required=True)
+            # These values belong to old text. Never carry them across tokenization changes.
+            for field in ('token_count','answer_tokens','tokens','prompt_length'):
+                revised.pop(field, None)
+            # Old tests/answers may contradict the revised task. Retain them only
+            # as provenance unless the proposal explicitly supplies a new target.
+            for field in ('reference_tests', 'expected_number', 'expected_phrase'):
+                if field in revised:
+                    revised['parent_' + field] = revised.pop(field)
+            revised.update(targets)
+            revised['evaluation_targets_require_review'] = True
+            revised['template_group'] = signature(prompt)
+            revised['parent_template_group'] = row.get('template_group')
+        rows.append(revised)
+    if not rows or len({r['id'] for r in rows}) != len(rows): raise ValueError('Invalid draft IDs')
+    paths = [corpus_path, review_path, *replacement_paths]
+    return dict(schema=4, ready_for_training=False, status='reviewed_training_draft',
+                description='Historical training references and proposed corrections; no new dev/test.',
+                sources=corpus.get('sources', {}),
+                source_file_sha256={str(p):sha(p) for p in paths},
+                replacements_applied=len(changes), examples=rows,
+                limitations=['Corrections retain parent exposure; never treat them as clean holdout data.',
+                             'Functional tests, factual review, tokenization and split freezing remain separate gates.',
+                             'Original corpus and teacher targets are unchanged.'])
+
+
+def revision_main():
+    parser = argparse.ArgumentParser(description='Build a hash-checked train-only draft from reference-review proposals')
+    parser.add_argument('--corpus', type=Path, required=True)
+    parser.add_argument('--review', type=Path, required=True)
+    parser.add_argument('--replacements', type=Path, nargs='+', required=True)
+    parser.add_argument('--output', type=Path, required=True)
+    args = parser.parse_args()
+    if args.output.exists(): parser.error('Use a new output; never overwrite a versioned draft')
+    result = reviewed_draft(args.corpus, args.review, args.replacements)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(result, indent=2, ensure_ascii=False)+'\n', encoding='utf-8')
+    print(json.dumps({k:result[k] for k in ('status','ready_for_training','replacements_applied')}))

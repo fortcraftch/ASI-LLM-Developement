@@ -1,0 +1,229 @@
+{
+  "pools": {
+    "technology": {
+      "categories": [
+        "computer_science_software_engineering__algorithms_data_structures",
+        "computer_science_software_engineering__cybersecurity",
+        "computer_science_software_engineering__databases_data_engineering",
+        "computer_science_software_engineering__devops_cloud",
+        "computer_science_software_engineering__general",
+        "computer_science_software_engineering__graphics_games",
+        "computer_science_software_engineering__networking_distributed",
+        "computer_science_software_engineering__programming_c_cpp",
+        "computer_science_software_engineering__programming_java_jvm",
+        "computer_science_software_engineering__programming_javascript_typescript",
+        "computer_science_software_engineering__programming_other",
+        "computer_science_software_engineering__programming_php_ruby",
+        "computer_science_software_engineering__programming_python",
+        "computer_science_software_engineering__programming_rust_go",
+        "computer_science_software_engineering__software_engineering",
+        "computer_science_software_engineering__systems_linux_os",
+        "computer_science_software_engineering__web_development",
+        "engineering_technology__aerospace",
+        "engineering_technology__chemical",
+        "engineering_technology__civil",
+        "engineering_technology__electrical_electronics",
+        "engineering_technology__energy",
+        "engineering_technology__general",
+        "engineering_technology__manufacturing",
+        "engineering_technology__materials",
+        "engineering_technology__mechanical",
+        "engineering_technology__robotics_control",
+        "engineering_technology__telecommunications",
+        "machine_learning_ai__computer_vision",
+        "machine_learning_ai__data_science",
+        "machine_learning_ai__deep_learning",
+        "machine_learning_ai__general",
+        "machine_learning_ai__large_language_models",
+        "machine_learning_ai__machine_learning",
+        "machine_learning_ai__nlp",
+        "machine_learning_ai__reinforcement_learning",
+        "machine_learning_ai__robotics_ai"
+      ],
+      "broad_domains": [
+        "computer_science_software_engineering",
+        "machine_learning_ai",
+        "engineering_technology"
+      ],
+      "tokens": 961391107,
+      "documents": 1035807
+    },
+    "math_physics": {
+      "categories": [
+        "mathematics_statistics__algebra",
+        "mathematics_statistics__applied_mathematics",
+        "mathematics_statistics__calculus",
+        "mathematics_statistics__discrete_math_logic",
+        "mathematics_statistics__general",
+        "mathematics_statistics__geometry",
+        "mathematics_statistics__number_theory",
+        "mathematics_statistics__numerical_methods",
+        "mathematics_statistics__optimization",
+        "mathematics_statistics__probability_statistics",
+        "physical_sciences__astronomy_space",
+        "physical_sciences__chemistry",
+        "physical_sciences__general",
+        "physical_sciences__materials_physics",
+        "physical_sciences__physics",
+        "physical_sciences__quantum"
+      ],
+      "broad_domains": [
+        "mathematics_statistics",
+        "physical_sciences"
+      ],
+      "tokens": 623288835,
+      "documents": 740427
+    },
+    "biology": {
+      "categories": [
+        "life_sciences_biology__biology",
+        "life_sciences_biology__biotechnology",
+        "life_sciences_biology__ecology",
+        "life_sciences_biology__evolution",
+        "life_sciences_biology__general",
+        "life_sciences_biology__genetics",
+        "life_sciences_biology__microbiology",
+        "life_sciences_biology__molecular_biology",
+        "life_sciences_biology__neuroscience"
+      ],
+      "broad_domains": [
+        "life_sciences_biology"
+      ],
+      "tokens": 1364745797,
+      "documents": 1353720
+    },
+    "health": {
+      "categories": [
+        "medicine_health__anatomy_physiology",
+        "medicine_health__clinical",
+        "medicine_health__general",
+        "medicine_health__medicine",
+        "medicine_health__mental_health",
+        "medicine_health__nutrition",
+        "medicine_health__pharmacology",
+        "medicine_health__public_health_epidemiology"
+      ],
+      "broad_domains": [
+        "medicine_health"
+      ],
+      "tokens": 1481421247,
+      "documents": 1544522
+    },
+    "environment": {
+      "categories": [
+        "environmental_science_energy__climate",
+        "environmental_science_energy__ecology_environment",
+        "environmental_science_energy__energy",
+        "environmental_science_energy__environmental_science",
+        "environmental_science_energy__general",
+        "environmental_science_energy__geoscience",
+        "environmental_science_energy__sustainability"
+      ],
+      "broad_domains": [
+        "environmental_science_energy"
+      ],
+      "tokens": 487806602,
+      "documents": 541534
+    },
+    "society_economy": {
+      "categories": [
+        "business_economics__accounting",
+        "business_economics__business_management",
+        "business_economics__ecommerce",
+        "business_economics__economics",
+        "business_economics__entrepreneurship",
+        "business_economics__finance",
+        "business_economics__general",
+        "business_economics__marketing",
+        "law_government__constitutional_law",
+        "law_government__general",
+        "law_government__government",
+        "law_government__international_law",
+        "law_government__law",
+        "law_government__regulation_policy",
+        "personal_finance_practical_life__automotive",
+        "personal_finance_practical_life__consumer",
+        "personal_finance_practical_life__cooking_food",
+        "personal_finance_practical_life__general",
+        "personal_finance_practical_life__health_fitness",
+        "personal_finance_practical_life__home_garden",
+        "personal_finance_practical_life__personal_finance",
+        "personal_finance_practical_life__sports_hobbies",
+        "personal_finance_practical_life__travel",
+        "social_sciences__anthropology",
+        "social_sciences__communication",
+        "social_sciences__demography",
+        "social_sciences__general",
+        "social_sciences__political_science",
+        "social_sciences__psychology",
+        "social_sciences__sociology"
+      ],
+      "broad_domains": [
+        "social_sciences",
+        "law_government",
+        "business_economics",
+        "personal_finance_practical_life"
+      ],
+      "tokens": 1909534939,
+      "documents": 1617642
+    },
+    "history_arts": {
+      "categories": [
+        "arts_humanities__architecture",
+        "arts_humanities__design",
+        "arts_humanities__film",
+        "arts_humanities__general",
+        "arts_humanities__literature",
+        "arts_humanities__music",
+        "arts_humanities__theatre",
+        "arts_humanities__visual_arts",
+        "history_geography__archaeology",
+        "history_geography__cultural_history",
+        "history_geography__general",
+        "history_geography__geography",
+        "history_geography__history",
+        "philosophy_ethics__epistemology_logic",
+        "philosophy_ethics__ethics",
+        "philosophy_ethics__general",
+        "philosophy_ethics__philosophy",
+        "philosophy_ethics__religion_theology"
+      ],
+      "broad_domains": [
+        "history_geography",
+        "arts_humanities",
+        "philosophy_ethics"
+      ],
+      "tokens": 2274351133,
+      "documents": 1765906
+    },
+    "education_language": {
+      "categories": [
+        "education_pedagogy__academic_reference",
+        "education_pedagogy__curriculum",
+        "education_pedagogy__education",
+        "education_pedagogy__general",
+        "education_pedagogy__pedagogy",
+        "education_pedagogy__teaching",
+        "language_writing__english_language",
+        "language_writing__general",
+        "language_writing__language_learning",
+        "language_writing__linguistics",
+        "language_writing__translation",
+        "language_writing__writing_communication"
+      ],
+      "broad_domains": [
+        "education_pedagogy",
+        "language_writing"
+      ],
+      "tokens": 851449684,
+      "documents": 1072543
+    }
+  },
+  "unassigned_categories": {},
+  "tokenizer": "gpt2",
+  "summary": {
+    "pool_count": 8,
+    "assigned_categories": 137,
+    "assigned_tokens": 9953989344
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "purpose": "Exclude known ambiguous or defective references from future selection; never rewrite historical results.",
+  "excluded": {
+    "mbpp_test_135": "ASCII-total prompt is ambiguous; reference returns ord of first character only. Review and replace in a separately versioned dataset before reuse.",
+    "gsm8k_test_1161": "Ambiguous fraction of remaining versus original land; exclude until independently clarified in a versioned reference.",
+    "gsm8k_train_618": "Reference assumes an unspecified relationship between diseases and applies risk reduction to a combined probability; topic geometry is also incorrect.",
+    "gsm8k_train_6953": "Final 3 is correct, but a sentence says 1.5 ounces while its equation 5*0.5=2.5 is correct. Replace erroneous prose in a versioned answer.",
+    "gsm8k_train_939": "Final 4 is correct. Union is 10+8-2=16; exactly one is 10+8-2*2=14. Reference incorrectly labels 16 as only one, despite using union for the complement.",
+    "mbpp_test_34": "Unconditionally indexes l[1], so singleton arrays fail although gcd of one integer is defined. Define empty/sign behavior too.",
+    "mbpp_test_398": "Uses abs(product) rather than product: [(-2,3),(1,1)] gives 1 by inspection instead of minimum -6.",
+    "mbpp_test_422": "Strict greater comparison is reasonable, but else message claims less even when equal to the maximum. Mutates by sorting and fails empty input.",
+    "mbpp_test_499": "DP counts products <=k instead of strictly <k and ignores zeros despite nonnegative input. For arr=[2],k=2 it counts one rather than zero; arr=[0],k=1 counts zero rather than one (static trace).",
+    "mbpp_train_249": "Nonzero is not positivity: angles (-10,90,100) sum to 180 and satisfy the or condition, so reference accepts an impossible triangle by inspection.",
+    "mbpp_train_361": "Uses floating division then int for integer bounds; can lose precision for sufficiently large integers. Prefer integer floor division and explicit natural-number bounds.",
+    "mbpp_train_371": "Returns flat concatenation test_tup1+test_tup2, not the nested tuple requested; clarify whether prompt or reference is intended.",
+    "mbpp_train_4": "Returns inside first loop iteration. For 2,3,4 loop is empty and return is None; for 9 first divisor 2 fails and returns True prematurely. Static trace, not execution.",
+    "mbpp_validation_10": "AST inspection shows x != (y & y) != (z & z) != x. For integers bitwise self-and equals the operand, so distinctness is correct; it fails for valid float side lengths. No triangle-inequality validation: integer sides (2,3,9) are accepted although impossible. Specify valid triangle input or repair validation.",
+    "mbpp_validation_34": "Bit spreading is fixed through shift 16 and assumes bounded positive width; n=0 returns 1 despite no first set bit. Specify width and zero convention.",
+    "mbpp_validation_73": "Return inside loop emits only first match. Regex w+ly is not a general adverb detector and has no word boundaries; define a suffix-matching task or use a different reference.",
+    "sciq_train_10263": "Question targets atmospheric UV protection; biology classification is triggered by the support passage. Review category and provide an answer directly explaining the mechanism.",
+    "sciq_train_10688": "Question is electrochemistry, not biology. Support assumes a copper cell and positive cathode without specifying the cell context.",
+    "sciq_train_1760": "Answer ends mainly because. Explanation is visibly incomplete; also verify absolute ceases in prompt before reuse.",
+    "sciq_train_3445": "Prompt asks the most abundant element without a measurement basis; support only says carbon is one of the most common. It does not establish the requested superlative.",
+    "sciq_train_4913": "Primarily soil/climate definition; support includes absent pictures and awkward tundra prefers phrasing. Review category and technical permafrost definition.",
+    "sciq_train_7031": "Support is an instruction to describe dependence, not an explanation. Target teaches a follow-up assignment instead of answering why.",
+    "sciq_train_9907": "Answer keyword concerns plant touch response, but entire support concerns stellar size and temperature. Unrelated explanation, regardless of factual truth of either.",
+    "sciq_validation_450": "Core question is thermal physics; no corresponding temperature increase is stronger than support without greatly increasing. Clarify definition/category."
+  }
+}

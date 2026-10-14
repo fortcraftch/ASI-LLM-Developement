@@ -10,8 +10,13 @@ modelos ya entrenados. Las recetas y los checkpoints de ambas líneas son distin
 
 ## Dónde empezar
 
+**Línea de trabajo vigente:** [hoja de ruta principal del TFG](docs/ROADMAP_PRINCIPAL.md).
+Recoge las siete fases acordadas, dependencias, criterios de cierre y progreso.
+
 | Necesidad | Documento de referencia |
 |---|---|
+| Comparar normalizaciones con 32 expertos residentes y revisar sus resultados | [Escala de routing](docs/ROUTING_SCALE_PROTOCOL.md) |
+| Preparar la comparación equivalente libre/categorizado con pesos y datos auditados | [MoE pareados de 124M](docs/MATCHED_MOE_124M.md) |
 | Entrenar el modelo 3 en homelab: router global y ocho LLM independientes | [Banco de especialistas](docs/ROUTER_BANK_TRAINING.md) |
 | Probar recalibración, núcleo compartido y primeras capas libres | [Intervenciones de máscaras](docs/MASK_INTERVENTIONS.md) |
 | Conversar con DeepSeek libre y comparar memoria/velocidad con ASI y GPT-2 | [Generación local comparable](docs/LOCAL_124M_GENERATION.md) |

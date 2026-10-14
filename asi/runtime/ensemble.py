@@ -8,6 +8,53 @@ from asi.runtime.generation import load_model, generate, validate_pool_identity
 from asi.runtime.routing import DomainSessionRouter
 
 
+class BankResidency:
+    """Keep immutable inference models in RAM, optionally all resident on the device.
+
+    Counters describe logical weight movement only, not PCIe measurements or
+    buffers. CPU execution never counts a CPU-to-CPU move as a GPU transfer.
+    """
+    def __init__(self, models, device, policy='all'):
+        if policy not in ('all', 'selected') or not models:
+            raise ValueError('A nonempty bank and a valid residency policy are required')
+        self.models = models
+        self.device = device
+        self.policy = policy
+        self.active = None
+        self.loads = 0
+        self.evictions = 0
+        self.weight_h2d_bytes = 0
+        self.weight_d2h_bytes = 0
+        for model in models.values():
+            model.to(device if policy == 'all' else 'cpu')
+            if policy == 'all' and str(device).startswith('cuda'):
+                self.loads += 1
+                self.weight_h2d_bytes += sum(p.numel()*p.element_size() for p in model.parameters())
+
+    def activate(self, pool):
+        if pool not in self.models:
+            raise ValueError('Unknown bank category: ' + str(pool))
+        if pool != self.active and self.policy == 'selected':
+            if self.active is not None:
+                old = self.models[self.active]
+                old.to('cpu')
+                if str(self.device).startswith('cuda'):
+                    self.evictions += 1
+                    self.weight_d2h_bytes += sum(p.numel()*p.element_size() for p in old.parameters())
+            model = self.models[pool]
+            model.to(self.device)
+            if str(self.device).startswith('cuda'):
+                self.loads += 1
+                self.weight_h2d_bytes += sum(p.numel()*p.element_size() for p in model.parameters())
+        self.active = pool
+        return self.models[pool]
+
+    def snapshot(self):
+        return dict(policy=self.policy, active=self.active, loads=self.loads,
+                    evictions=self.evictions, weight_h2d_bytes=self.weight_h2d_bytes,
+                    weight_d2h_bytes=self.weight_d2h_bytes)
+
+
 class IndependentModelRouter:
     def __init__(self, checkpoints, pool_names, device='cpu', total_budget=124_000_000):
         if set(checkpoints) != set(pool_names) or not checkpoints:

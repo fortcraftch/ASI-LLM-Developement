@@ -107,6 +107,7 @@ class DesignTests(unittest.TestCase):
                 for split in ['train','val']:
                     np.save(root/name/(split+'_0.npy'),np.arange(128,dtype=np.uint16)%64)
             config=asdict(tiny().config);config['routing_mode']='uniform_pool'
+            config['normalize_selected_weights']=True
             recipe={'schema':1,'family':'domain','model':config,'pool_order':['a','b'],
                     'parameter_budget':1_000_000,'source_manifest_sha256':hashlib.sha256(source.read_bytes()).hexdigest(),
                     'pool_manifest_sha256':hashlib.sha256(manifest.read_bytes()).hexdigest(),
@@ -115,7 +116,7 @@ class DesignTests(unittest.TestCase):
                                 'data_order':'random','pool_sampling':'sqrt'}}
             recipe_path=root/'recipe.json';recipe_path.write_text(json.dumps(recipe))
             args=['train','--recipe',str(recipe_path),'--data-root',str(root),'--pool-manifest',str(manifest),
-                  '--device','cpu','--log-dir',str(root/'full')]
+                  '--pairing-audit','--device','cpu','--log-dir',str(root/'full')]
             with contextlib.redirect_stdout(io.StringIO()),patch('sys.argv',args):main()
             resumed=args[:-1]+[str(root/'resumed'),'--resume',str(root/'full/model_00001.pt')]
             with contextlib.redirect_stdout(io.StringIO()),patch('sys.argv',resumed):main()
@@ -123,8 +124,34 @@ class DesignTests(unittest.TestCase):
             resumed=torch.load(root/'resumed/model_00002.pt',weights_only=False)
             self.assertEqual(full['train_state'],resumed['train_state'])
             self.assertEqual(full['pool_rng_state'],resumed['pool_rng_state'])
+            self.assertEqual(full['pairing_evidence'], resumed['pairing_evidence'])
+            self.assertIsNotNone(full['pairing_evidence'])
+            read_log = lambda name: [json.loads(line) for line in (root/name/'log.txt').read_text().splitlines()
+                                    if 'input_sha256' in line]
+            self.assertEqual(read_log('full')[-1]['input_sha256'], read_log('resumed')[-1]['input_sha256'])
             for key,tensor in full['model'].items():
                 self.assertTrue(torch.equal(tensor,resumed['model'][key]),key)
+            recipe['family'] = 'base'
+            recipe['model']['routing_mode'] = 'learned'
+            recipe_path.write_text(json.dumps(recipe))
+            free_args = args[:-1] + [str(root/'free')]
+            with contextlib.redirect_stdout(io.StringIO()), patch('sys.argv', free_args): main()
+            free = torch.load(root/'free/model_00002.pt', weights_only=False)
+            self.assertEqual(full['pairing_evidence'], free['pairing_evidence'])
+            self.assertEqual([r['input_sha256'] for r in read_log('full')],
+                             [r['input_sha256'] for r in read_log('free')])
+            from asi.analysis.training_pairing import compare_runs
+            comparison = compare_runs([root/'full', root/'free'])
+            self.assertTrue(comparison['observed_pairing_matches'])
+            self.assertTrue(comparison['logged_schedule_complete'])
+            partial = compare_runs([root/'full', root/'resumed'])
+            self.assertTrue(partial['observed_pairing_matches'])
+            self.assertFalse(partial['logged_schedule_complete'])
+            log = root/'free/log.txt'
+            lines = [json.loads(line) for line in log.read_text().splitlines()]
+            next(r for r in lines if 'input_sha256' in r)['input_sha256'] = 'different'
+            log.write_text('\n'.join(json.dumps(r) for r in lines)+'\n')
+            self.assertFalse(compare_runs([root/'full', root/'free'])['observed_pairing_matches'])
 
 
 if __name__=='__main__':unittest.main()

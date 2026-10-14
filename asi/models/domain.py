@@ -51,6 +51,8 @@ class GPTConfig:
     score_func: Literal["softmax", "sigmoid"] = "softmax"
     route_scale: float = 1.0
     routing_mode: Literal["learned", "uniform_pool"] = "learned"
+    # Opt-in amplitude control for new paired experiments; legacy checkpoints keep False.
+    normalize_selected_weights: bool = False
 
     # MLA
     q_lora_rank: int = 0
@@ -612,6 +614,7 @@ class Gate(nn.Module):
         self.score_func = args.score_func
         self.route_scale = args.route_scale
         self.routing_mode = args.routing_mode
+        self.normalize_selected_weights = args.normalize_selected_weights
         if self.routing_mode not in ('learned', 'uniform_pool'):
             raise ValueError('Unknown routing mode')
         self.weight = nn.Parameter(torch.empty(args.n_routed_experts, args.n_embd))
@@ -689,7 +692,7 @@ class Gate(nn.Module):
 
         indices = torch.topk(scores, self.topk, dim=-1)[1]
         weights = original_scores.gather(1, indices)
-        if self.score_func == "sigmoid":
+        if self.score_func == "sigmoid" or self.normalize_selected_weights:
             weights /= weights.sum(dim=-1, keepdim=True).clamp_min(1e-8)
         weights *= self.route_scale
         return weights, indices

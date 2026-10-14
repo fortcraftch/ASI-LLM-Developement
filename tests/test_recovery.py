@@ -12,6 +12,16 @@ from test_public_moe import tiny
 
 
 class RecoveryTests(unittest.TestCase):
+    def test_reference_drafts_and_relabelled_training_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'draft.json'
+            path.write_text(json.dumps({'ready_for_training':False,'examples':[]}))
+            with self.assertRaisesRegex(ValueError,'not ready'): read_examples(path)
+            rows=[dict(id=s,split=s,prompt=s,answer='answer',category='x') for s in ('train','dev','test')]
+            rows[-1]['train_only']=True
+            path.write_text(json.dumps({'examples':rows}))
+            with self.assertRaisesRegex(ValueError,'train-only'): read_examples(path)
+
     def test_comparison_checks_exposure_and_identity(self):
         settings={key:1 for key in ('supervised','steps','seed','lr','alpha','active','experts','mask_sizes',
                                     'max_length','new_tokens','generation_per_category')}

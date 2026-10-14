@@ -287,6 +287,7 @@ def save_checkpoint(path, model, optimizer, step, train_data, scheduler, val_los
         "val_loss_timing": "before_this_step_update" if val_loss is not None else None,
         "training_recipe": getattr(model,'training_recipe',None),
         "training_settings": getattr(model,'training_settings',None),
+        "pairing_evidence": getattr(model, 'pairing_evidence', None),
         "torch_rng_state": torch.get_rng_state(),
         "cuda_rng_states": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
     }
@@ -310,6 +311,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--recipe',type=Path,help='Portable model/training configuration produced by design')
     p.add_argument('--dry-run',action='store_true',help='Validate and count on meta; no weights allocated and no training')
+    p.add_argument('--pairing-audit', action='store_true', help='Record initialization and actual batch hashes for matched experiments')
     p.add_argument('--data-order',choices=['sequential','random'],default='sequential')
     p.add_argument("--data-root", type=Path, default=DATA_ROOT)
     p.add_argument("--pool-manifest", type=Path, default=(DATA_ROOT / "expert_pools.json"))
@@ -441,6 +443,16 @@ def main():
         model = GPT(config)
         start_step = 0
 
+    from asi.analysis.training_pairing import initialization_evidence, implementation_hashes, step_hasher, update_tensor
+    model.pairing_evidence = resume_ckpt.get('pairing_evidence') if resume_ckpt else None
+    if resume_ckpt and args.pairing_audit and model.pairing_evidence is None:
+        p.error('Cannot reconstruct initial pairing evidence from an untracked trained checkpoint')
+    if model.pairing_evidence is not None:
+        args.pairing_audit = True
+        if model.pairing_evidence['implementation_sha256'] != implementation_hashes():
+            p.error('Paired training implementation changed; preserve this experiment and review protocol before resuming')
+    elif args.pairing_audit:
+        model.pairing_evidence = initialization_evidence(model)
     model.training_recipe=recipe
     model.training_settings={k:getattr(args,k) for k in ('seed','pool_sampling','data_order','total_batch_size','batch_size','seq_len',
         'max_steps','max_lr','min_lr_factor','warmup_steps','weight_decay')}
@@ -485,6 +497,7 @@ def main():
         'moe_backend': os.environ.get('ASI_MOE_BACKEND', 'auto'),
         'recipe': recipe, 'settings': model.training_settings, 'arguments': vars(args),
         'model': asdict(config), 'parameters': sum(p.numel() for p in model.parameters()),
+        'pairing_evidence': model.pairing_evidence,
         'validation_aggregation': 'equal mean over pools',
     }, indent=2, default=str), encoding='utf-8')
     log_file = args.log_dir / "log.txt"
@@ -518,9 +531,13 @@ def main():
         active_pool_name = scheduler.sample(train_data.names())
         active_pool_id = manifest.pool_id(active_pool_name)
         activate_training_pool(model, active_pool_id)
+        consumed = step_hasher(step, active_pool_name) if args.pairing_audit else None
 
         for micro in range(grad_accum):
             x, y = train_data.next_batch(active_pool_name)
+            if consumed is not None:
+                update_tensor(consumed, x)
+                update_tensor(consumed, y)
             x, y = x.to(args.device), y.to(args.device)
             with autocast_context(args.device):
                 _, loss = model(x, y)
@@ -563,6 +580,7 @@ def main():
                     "lr": lr,
                     "time_sec": dt,
                     "tokens_sec": tokens_sec,
+                    **({'input_sha256': consumed.hexdigest()} if consumed is not None else {}),
                 }) + "\n"
             )
 

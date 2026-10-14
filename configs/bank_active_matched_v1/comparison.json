@@ -1,0 +1,11 @@
+{
+  "target": "ASI domain_16_uniform_pool",
+  "asi_total": 122325504,
+  "asi_common_plus_selected_including_unused_gates": 93940224,
+  "unused_gate_parameters": 90112,
+  "asi_participating_parameter_inventory": 93850112,
+  "dense_per_model": 93850112,
+  "bank_total": 750800896,
+  "dense_ffn_width": 568,
+  "note": "Matched participating parameter inventory, not FLOPs or total bank storage. Embedding tables counted in full; excludes external classifier. Training category exposures retained from original bank recipes."
+}

@@ -13,6 +13,27 @@ from asi.runtime.cache import ExpertCacheManager
 
 
 class BatchBenchmarkTest(unittest.TestCase):
+    def test_generation_uses_adapter_precision_context(self):
+        from contextlib import contextmanager
+        calls = []
+        @contextmanager
+        def context():
+            calls.append('enter')
+            yield
+        self.adapter.inference_context = context
+        requests = {(pack([1,2]),3,False): None}
+        generate_requests(self.adapter,requests,1,32)
+        self.assertEqual(len(calls),3)
+
+    def test_request_trace_preserves_individual_scores_and_generations(self):
+        from asi.experiments.benchmark_batch import request_trace
+        trace = request_trace({(pack([1,2,3]), 2): (1.5, 1.5)},
+                              {(pack([1,2]), 4, True): [3,31]})
+        self.assertEqual(trace['scores'][0]['completion_start'], 2)
+        self.assertEqual(trace['scores'][0]['sum_nll'], 1.5)
+        self.assertEqual(trace['generations'][0]['output_token_ids'], [3,31])
+        self.assertNotEqual(trace['scores'][0]['tokens_sha256'],
+                            trace['generations'][0]['prompt_tokens_sha256'])
     def test_classifier_batch_preserves_sequential_inertia(self):
         names=['expert_00_programming','expert_03_math']
         serial=DomainSessionRouter(names,max_pools=1,load_classifier=False)

@@ -27,6 +27,31 @@ def tiny():
 
 
 class PublicMoeTests(unittest.TestCase):
+    def test_scale_policies_on_identical_hidden_states(self):
+        model = tiny()
+        cache = OlmoeExpertCache(model, 'cpu', capacity=4)
+        mapping = {str(i): {'experts': [1, 3], 'weights': [.5, .5]} for i in range(2)}
+        hidden = torch.randn(7, 32)
+        gate = model.model.layers[0].mlp.gate
+        with torch.inference_mode():
+            _, native_weights, _ = gate(hidden)
+            observed = {}
+            for policy in ['restricted', 'restricted_native_mass', 'restricted_unit_mass']:
+                cache.set_context(mapping, mixture=policy, active=2)
+                before = cache.stats['loads']
+                logits, weights, indices = gate(hidden)
+                observed[policy] = indices
+                probabilities = logits.float().softmax(-1).gather(1, indices)
+                expected = probabilities
+                if policy == 'restricted_unit_mass':
+                    expected = probabilities / probabilities.sum(-1, keepdim=True)
+                elif policy == 'restricted_native_mass':
+                    expected = probabilities / probabilities.sum(-1, keepdim=True) * native_weights.sum(-1, keepdim=True)
+                torch.testing.assert_close(weights, expected)
+                self.assertEqual(cache.stats['loads'], before)
+            torch.testing.assert_close(observed['restricted'], observed['restricted_unit_mass'])
+            torch.testing.assert_close(observed['restricted'], observed['restricted_native_mass'])
+        cache.close()
     def test_heterogeneous_residency_leaves_first_layer_free(self):
         model = tiny()
         cache = OlmoeExpertCache(model, 'cpu', capacity=6)

@@ -18,6 +18,8 @@ from asi.experiments.public_moe import read_lock, input_ids, choose_capacity, ha
 
 def read_examples(path):
     content = json.loads(path.read_text(encoding='utf-8'))
+    if content.get('ready_for_training') is False:
+        raise ValueError('Reference draft is not ready for training/evaluation; complete its review gates first')
     rows = content['examples']
     if not rows or len({r['id'] for r in rows}) != len(rows):
         raise ValueError('Unique nonempty example IDs required')
@@ -35,6 +37,8 @@ def read_examples(path):
                 membership.setdefault(row[field],set()).add(row['split'])
         if any(len(splits)>1 for splits in membership.values()):
             raise ValueError('Cross-split '+field+' leakage')
+    if any(r.get('train_only') and r['split'] != 'train' for r in rows):
+        raise ValueError('Historical train-only revisions cannot become dev/test')
     return content
 
 

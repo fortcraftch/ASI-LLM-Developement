@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "purpose": "Curated diagnostic assertions written after static review, not hidden evaluation or an unbiased benchmark",
+  "corpus_sha256": "710a53051610245521a978383fb94c35593c98b0fe5f519b3124919eff201064",
+  "cases": [
+    {
+      "id": "mbpp_train_4",
+      "answer_sha256": "698ab8a19d419470459c1f6e07b79d8a15dc7e4b8072ec5fb2a1664f250e2c14",
+      "purpose": "Prime edge cases and an odd composite",
+      "tests": [
+        "assert prime_num(2) is True",
+        "assert prime_num(9) is False"
+      ]
+    },
+    {
+      "id": "mbpp_test_398",
+      "answer_sha256": "0735049c87ff41d81067acc489ad6b3a97e4fb3f6bf942a54add38fc12dbcd8b",
+      "purpose": "Signed product, not absolute value",
+      "tests": [
+        "assert min_product_tuple([(-2,3),(1,1)]) == -6"
+      ]
+    },
+    {
+      "id": "mbpp_test_499",
+      "answer_sha256": "70dd0b47f7b74507f148f50d70ffc33ea233c39526af946671967c86d6a81f2e",
+      "purpose": "Strict threshold and zero permitted by nonnegative prompt",
+      "tests": [
+        "assert no_of_subsequences([2],2) == 0",
+        "assert no_of_subsequences([0],1) == 1"
+      ]
+    },
+    {
+      "id": "mbpp_train_249",
+      "answer_sha256": "36fbed5adbcdba0c86b24ff526fea189964104fd3e1815c434ee040337716873",
+      "purpose": "Negative angle is not a triangle",
+      "tests": [
+        "assert is_triangleexists(-10,90,100) is False"
+      ]
+    },
+    {
+      "id": "mbpp_train_371",
+      "answer_sha256": "18bd337207d84e98b18cacd02b43533ae45325932196284a62e4910ce3dfd6a1",
+      "purpose": "Nested output requested",
+      "tests": [
+        "assert concatenate_nested((1,2),(3,4)) == ((1,2),(3,4))"
+      ]
+    },
+    {
+      "id": "mbpp_validation_73",
+      "answer_sha256": "afac57e3b0f9a0b489c5fc7c6315bd4b0ddc00dea31c1b7e442e432acf207bc8",
+      "purpose": "Both unambiguous ly words must appear, regardless of output formatting",
+      "tests": [
+        "result = str(find_adverbs('He walked slowly and spoke quietly.')); assert 'slowly' in result and 'quietly' in result"
+      ]
+    },
+    {
+      "id": "mbpp_test_245",
+      "answer_sha256": "6ab9a176653afaf95b7f069654d13c4c0c29745b11bbad09e8b2d2e8499ec9ee",
+      "purpose": "Positive control prime count",
+      "tests": [
+        "assert count_Primes_nums(10)==4",
+        "assert count_Primes_nums(2)==0"
+      ]
+    },
+    {
+      "id": "mbpp_test_394",
+      "answer_sha256": "11d418daaf1166305ac131fe76d3acda0be80de2d4a0cabf0b92de718f4f1a83",
+      "purpose": "Positive control tuple membership",
+      "tests": [
+        "assert check_tuplex((1,2),2) is True",
+        "assert check_tuplex((1,2),3) is False"
+      ]
+    }
+  ]
+}

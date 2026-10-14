@@ -6,7 +6,9 @@ requests next-token logits directly. Routes never see completion/target tokens.
 """
 from array import array
 from collections import defaultdict
+import hashlib
 import math
+import time
 
 import torch
 import torch.nn.functional as F
@@ -21,6 +23,31 @@ def pack(ids):
 def unpack(data):
     values = array('I'); values.frombytes(data)
     return list(values)
+
+
+def request_trace(scores, generations):
+    """Stable per-request evidence, independent of batch order and residency."""
+    return {
+        'scores': [{'tokens_sha256': hashlib.sha256(raw).hexdigest(),
+                    'input_token_ids': unpack(raw),
+                    'completion_start': start, 'sum_nll': value[0], 'mean_nll': value[1]}
+                   for (raw, start), value in scores.items()],
+        'generations': [{'prompt_tokens_sha256': hashlib.sha256(raw).hexdigest(),
+                         'prompt_token_ids': unpack(raw),
+                         'max_new_tokens': steps, 'stop_eos': stop,
+                         'output_token_ids': list(value)}
+                        for (raw, steps, stop), value in generations.items()]}
+
+
+def emit_trace(adapter, task, scores, generations):
+    callback = getattr(adapter, 'record_requests', None)
+    if callback is not None:
+        callback(task, request_trace(scores, generations))
+
+
+def adapter_context(adapter):
+    factory = getattr(adapter, 'inference_context', None)
+    return factory() if factory else inference_context(adapter.device)
 
 
 class Requests:
@@ -43,6 +70,21 @@ class Requests:
             self.generations[key] = None
             return ''
         return self.enc.decode(self.generations[key]).strip()
+
+
+class RequestProgress:
+    """Wall-clock throttled logging; no tensor reads or GPU synchronization."""
+    def __init__(self, phase, total):
+        self.phase, self.total, self.done = phase, total, 0
+        self.started = self.last = time.monotonic()
+
+    def advance(self, count):
+        self.done += count
+        now = time.monotonic()
+        if now - self.last >= 30 or (self.done == self.total and now - self.started >= 30):
+            print(f'{self.phase}: {self.done}/{self.total} requests completed '
+                  f'({100*self.done/self.total:.1f}%), {now-self.started:.0f}s', flush=True)
+            self.last = now
 
 
 def batches(rows, batch_size, token_budget, length):
@@ -71,6 +113,7 @@ def score_requests(adapter, requests, batch_size, token_budget):
             start = max(1, start - (len(ids)-adapter.block_size))
             ids = ids[-adapter.block_size:]
         groups[route].append((key, pack(ids), max(0, start-1)))
+    progress = RequestProgress('Scoring', sum(len(rows) for rows in groups.values()))
     for route, rows in groups.items():
         adapter.activate(route)
         rows.sort(key=lambda r: len(r[1]))
@@ -90,6 +133,7 @@ def score_requests(adapter, requests, batch_size, token_budget):
             means = (total/count.clamp_min(1)).masked_fill(count==0,float('inf')).tolist()
             for row, s, m in zip(batch, sums, means): requests[row[0]] = (s,m)
             del logits, losses
+            progress.advance(len(batch))
 
 
 @torch.no_grad()
@@ -104,6 +148,7 @@ def generate_requests(adapter, requests, batch_size, token_budget):
         if not ids: raise ValueError('Benchmark generation requires a nonempty prompt')
         route = adapter.route_key(ids)
         groups[(route, min(len(ids),adapter.block_size))].append(key)
+    progress = RequestProgress('Generation', len(requests))
     for (route, length), rows in groups.items():
         adapter.activate(route)
         for batch in batches(rows,batch_size,token_budget,lambda _:length):
@@ -111,7 +156,7 @@ def generate_requests(adapter, requests, batch_size, token_budget):
             outputs = [[] for _ in batch]; done = [key[1]<=0 for key in batch]
             x = torch.tensor(histories,device=adapter.device,dtype=torch.long)
             position = length
-            with inference_context(adapter.device):
+            with adapter_context(adapter):
                 logits = adapter.model(x,start_pos=0,logits_to_keep=1)[0]
             for step in range(max(key[1] for key in batch)):
                 tokens = logits[:,-1,:].argmax(-1).tolist()
@@ -121,7 +166,7 @@ def generate_requests(adapter, requests, batch_size, token_budget):
                         outputs[i].append(token)
                         done[i] = step+1 >= key[1] or (key[2] and token==adapter.enc.eot_token)
                 if all(done): break
-                with inference_context(adapter.device):
+                with adapter_context(adapter):
                     if getattr(adapter,'supports_kv_cache',True) and position < adapter.block_size:
                         x = torch.tensor(tokens,device=adapter.device).unsqueeze(1)
                         logits = adapter.model(x,start_pos=position,logits_to_keep=1)[0]
@@ -132,6 +177,7 @@ def generate_requests(adapter, requests, batch_size, token_budget):
                         logits = adapter.model(x,start_pos=0,logits_to_keep=1)[0]
                 # logits contain all vocabulary entries, exactly like reference argmax.
             for key, output in zip(batch,outputs): requests[key] = output
+            progress.advance(len(batch))
 
 
 def lambada(bench, adapter, limit, batch_size, token_budget):
@@ -146,6 +192,7 @@ def lambada(bench, adapter, limit, batch_size, token_budget):
         scores[sk] = None; generations[gk] = None; examples.append((sk,gk,a))
     score_requests(adapter,scores,batch_size,token_budget)
     generate_requests(adapter,generations,batch_size,token_budget)
+    emit_trace(adapter, 'lambada', scores, generations)
     correct = sum(generations[gk]==a for _,gk,a in examples)
     nll = sum(scores[sk][0] for sk,_,_ in examples); count = sum(len(a) for _,_,a in examples)
     return {'accuracy':correct/len(examples) if examples else float('nan'),
@@ -165,5 +212,6 @@ def evaluate(bench, task, adapter, limit, batch_size=8, token_budget=2048):
     print(f'{task}: {len(requests.scores)} scoring requests, {len(requests.generations)} generation requests; grouping by pool',flush=True)
     score_requests(adapter,requests.scores,batch_size,token_budget)
     generate_requests(adapter,requests.generations,batch_size,token_budget)
+    emit_trace(adapter, task, requests.scores, requests.generations)
     requests.recording = False
     return bench.TASKS[task](requests,limit)

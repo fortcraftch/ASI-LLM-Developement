@@ -5,8 +5,14 @@ import sys
 
 
 COMMANDS = {
+    'bank-eval': ('asi.experiments.bank_eval', 'main', 'Evaluar el banco independiente con el protocolo compartido GPT-2'),
+    'bank-audit': ('asi.experiments.train_bank', 'audit_main', 'Verificar integridad y finalización de los ocho especialistas'),
+    'reference-code-check': ('asi.analysis.reference_code_check', 'main', 'Verificar referencias de código en contenedores Linux aislados'),
+    'training-pairing-report': ('asi.analysis.training_pairing', 'main', 'Verificar pesos iniciales y lotes reales entre entrenamientos pareados'),
+    'routing-scale': ('asi.experiments.routing_scale', 'main', 'Comparar tres escalas de mezcla con máscara fija en desarrollo revisado'),
+    'recovery-data-audit': ('asi.analysis.recovery_data_audit', 'main', 'Inventariar exposición histórica y candidatos sin congelar un nuevo test'),
     'train-bank': ('asi.experiments.train_bank', 'main', 'Entrenar y reanudar el banco de especialistas densos independientes'),
-    'mask-intervention-report': ('asi.analysis.mask_intervention_report', 'main', 'Graficar intervenciones de pools y capas libres'),
+    'mask-intervention-report': ('asi.analysis.mask_intervention_report', 'main', 'Graficar intervenciones de pools, capas libres o escala de mezcla'),
     'mask-intervention': ('asi.experiments.mask_intervention', 'main', 'Recalibrar pools y comparar capas libres con controles de memoria'),
     'routing-paired': ('asi.experiments.routing_paired', 'main', 'Comparar routing sobre tokens idénticos antes y después de recuperación'),
     'routing-paired-report': ('asi.analysis.routing_paired_report', 'main', 'Graficar trazas emparejadas sin cargar modelos'),
@@ -39,6 +45,7 @@ COMMANDS = {
     'graphs': ('asi.analysis.plots', 'main', 'Explicar y graficar pruebas ya ejecutadas, sin cargar modelos'),
     'comparison': ('asi.experiments.comparison', 'main', 'Preparar y ejecutar por separado la comparación de tres modelos'),
     'data': {
+        'recovery-revise': ('asi.data.recovery_corpus', 'revision_main', 'Construir borrador versionado con correcciones y procedencia conservada'),
         'recovery-corpus': ('asi.data.recovery_corpus', 'main', 'Preparar corpus público de recuperación con temas reservados'),
         'classifier-examples': ('asi.data.classifier_examples', 'main', 'Crear un corpus semilla sintético con splits separados'),
         'prepare': ('asi.data.prepare', 'main', 'Clasificar documentos y crear shards'),

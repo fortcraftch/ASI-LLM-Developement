@@ -10,15 +10,12 @@ todos los pesos residentes, clasificación y evaluación por lotes, un pool acti
 
 ## Organización y archivos históricos
 
-Avance de octubre: [evaluación optimizada y SFT ampliado](AVANCE_2026-10-05.md).
-Para medir HellaSwag con cuatro alternativas agrupadas:
+Los comandos y controles de calidad se mantienen en la
+[guía principal de benchmarks](BENCHMARKS_RAPIDOS.md); no se duplican aquí
+recetas parciales de HellaSwag. Para comparar con la ruta anterior del evaluador,
+consultar allí `--reference-eval` y utilizar una salida nueva.
 
-```bash
-python -m asi checkpoint-eval --checkpoint model_37595.pt --gpt2-evaluator ../Creating-GPT-2-From-0/eval.py --modes classified --tasks hellaswag --limit 100 --skip-probes --output results/hellaswag_nuevo.json
-```
-
-Añadir `--reference-eval` y elegir otra salida permite comparar con la ejecución
-anterior. `python -m asi chat domain --help` incluye `--diagnostics` para inspeccionar
+`python -m asi chat domain --help` incluye `--diagnostics` para inspeccionar
 la terminación. `python -m asi conversation-compare --help` permite comparar GPT-2
 y los checkpoints categorizados bajo el mismo formato de conversación.
 

@@ -1,19 +1,12 @@
 """Load the user's original eight-expert architecture without changing its weights."""
-import hashlib
 import importlib.util
 import sys
 from pathlib import Path
+from asi.data.identity import file_sha256
 import torch
 from asi import ROOT
 
 DEFAULT_ARCHITECTURE=ROOT.parent/'Creating-DeepSeek-V3-From-0/train_deepseek_v3.py'
-
-
-def file_sha256(path):
-    digest=hashlib.sha256()
-    with Path(path).open('rb') as f:
-        for chunk in iter(lambda:f.read(8*1024**2),b''): digest.update(chunk)
-    return digest.hexdigest()
 
 
 def import_architecture(architecture):

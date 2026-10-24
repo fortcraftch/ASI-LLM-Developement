@@ -58,4 +58,25 @@ class ReferenceChecks(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'Corpus differs'): prepare(c,t)
 
 
+import copy
+from asi.analysis.reference_code_check import validate_execution_report
+
+class ExecutionEvidenceChecks(unittest.TestCase):
+    def test_reject_stale_incomplete_duplicate_and_failed_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);corpus=root/'corpus.json';cases=root/'cases.json';runner=root/'runner.py'
+            import hashlib
+            answer='```python\ndef f(): return 1\n```';ah=hashlib.sha256(answer.encode()).hexdigest()
+            corpus.write_text(json.dumps({'examples':[{'id':'x','answer':answer}]}));runner.write_text('# pinned runner')
+            cases.write_text(json.dumps({'corpus_sha256':digest(corpus),'cases':[{'id':'x','answer_sha256':ah,'tests':['assert f()==1'],'purpose':'fixture'}]}))
+            report=dict(kind='curated_reference_assertions',completed=True,executed=True,corpus_sha256=digest(corpus),cases_sha256=digest(cases),runner_sha256=digest(runner),image_id='sha256:'+'a'*64,results=[dict(id='x',answer_sha256=ah,status='passed',exit_code=0)])
+            self.assertEqual(validate_execution_report(report,corpus,cases,runner)['verified_cases'],1)
+            bad=[]
+            for key,value in [('completed',False),('executed',False),('runner_sha256','old'),('image_id','python:latest')]:
+                r=copy.deepcopy(report);r[key]=value;bad.append(r)
+            r=copy.deepcopy(report);r['results']*=2;bad.append(r)
+            r=copy.deepcopy(report);r['results'][0]['exit_code']=10;bad.append(r)
+            for r in bad:
+                with self.assertRaises(ValueError):validate_execution_report(r,corpus,cases,runner)
+
 if __name__ == '__main__': unittest.main()

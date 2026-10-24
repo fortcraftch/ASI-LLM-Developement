@@ -1,4 +1,4 @@
-"""Portable text-manifest identity, including legacy platform-specific hashes."""
+"""Artifact identity: exact binary hashes and portable text-manifest hashes."""
 import hashlib
 from pathlib import Path
 
@@ -22,3 +22,12 @@ def manifest_matches(path, expected):
     lf = raw.replace(b'\r\n', b'\n')
     return any(hashlib.sha256(data).hexdigest() == expected
                for data in (raw, lf, lf.replace(b'\n', b'\r\n')))
+
+
+def file_sha256(path):
+    """Hash exact bytes in bounded memory; never normalize checkpoints or reports."""
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(8 * 1024**2), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

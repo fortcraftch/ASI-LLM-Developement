@@ -1,0 +1,22 @@
+{
+  "checkpoint": "../Creating-DeepSeek-V3-From-0/model_19072.pt",
+  "seed": 1337,
+  "new_tokens": 32,
+  "cases": [
+    {
+      "category": "programming",
+      "calibration": "Python generators yield values lazily. Lists store elements, dictionaries map keys to values, and functions accept arguments and return results.",
+      "prompt": "Explain the difference between a Python list and a generator."
+    },
+    {
+      "category": "mathematics",
+      "calibration": "Algebra studies equations and variables. The derivative of x squared is twice x. A triangle has three sides and its area is base times height divided by two.",
+      "prompt": "Explain why the derivative of x squared is 2x."
+    },
+    {
+      "category": "biology",
+      "calibration": "Cells contain genetic information in DNA. Photosynthesis uses sunlight to convert carbon dioxide and water into sugars. Ecosystems exchange energy and recycle matter.",
+      "prompt": "Explain how photosynthesis provides energy for an ecosystem."
+    }
+  ]
+}

@@ -51,7 +51,12 @@ def main():
     checked = {r['pool']: r for r in audit['models']}
     if not audit['complete'] or set(checked) != set(names): p.error('A complete bank audit is required')
     paths = {k: a.bank.parent / v for k, v in bank.items()}
-    manager = IndependentModelRouter(paths, names, 'cpu')
+    # The active-capacity-matched bank is larger than the historical 124M bank.
+    # Keep the per-specialist guard, using the independently audited inventory.
+    audited_budget = sum(checked[name]['parameters'] for name in names)
+    if audited_budget != audit['parameters_expected']:
+        p.error('Audited collection parameter count is inconsistent')
+    manager = IndependentModelRouter(paths, names, 'cpu', total_budget=audited_budget)
     models = {}
     for name in names:
         if file_sha256(paths[name]) != checked[name]['sha256']: p.error('Checkpoint changed since audit: ' + name)

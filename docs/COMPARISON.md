@@ -1,4 +1,11 @@
-# Comparación de tres modelos: protocolo preparado, sin ejecutar
+# Matriz de residencia y restricción: protocolo preparado
+
+Esta guía describe tres **condiciones de expertos** (`original`, `classified`,
+`domain`), no la comparación de las tres arquitecturas ASI/DeepSeek/banco.
+Para los resultados completos vigentes y sus comandos, consultar la
+[guía principal de benchmarks](BENCHMARKS_RAPIDOS.md#referencia-vigente-y-protocolos-separados).
+La preparación descrita aquí se conserva para reproducir esta matriz concreta;
+no significa que las suites de calidad actuales estén pendientes.
 
 Esta batería corresponde a la opción 1. Su objetivo es medir cuánta calidad se
 pierde al reducir la residencia de expertos y cuánto swapping queda. No busca

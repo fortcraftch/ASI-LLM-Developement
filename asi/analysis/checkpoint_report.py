@@ -3,7 +3,44 @@ import argparse
 import json
 import math
 import statistics
+import copy
 from pathlib import Path
+
+
+def recover_native_suite(blocks, reference, expected_tasks):
+    """Recover full saved tasks from interrupted native reports without editing them.
+
+    Coverage and per-task counts must match an independently completed reference.
+    This validates recorded evidence, not rerunning the original predictions.
+    """
+    if not blocks or reference.get('completed') is not True:
+        raise ValueError('Completed reference and native blocks required')
+    first = blocks[0]
+    if not blocks[-1].get('completed'):
+        raise ValueError('Continuation has not completed')
+    result = copy.deepcopy(first)
+    result['tasks'] = {}; result['datasets'] = {}
+    for block in blocks:
+        if block.get('kind') != 'native_deepseek_benchmark':
+            raise ValueError('Only native reports can be recovered')
+        for field in ('checkpoint_sha256', 'evaluator_sha256', 'precision', 'routing', 'runtime', 'parameters', 'limit'):
+            if field not in first or block.get(field) != first[field]:
+                raise ValueError('Native protocol mismatch: '+field)
+        if block.get('metadata', {}).get('architecture_sha256') != first.get('metadata', {}).get('architecture_sha256') or not first.get('metadata', {}).get('architecture_sha256'):
+            raise ValueError('Native architecture mismatch')
+        if result['tasks'].keys() & block['tasks'].keys():
+            raise ValueError('Overlapping task blocks')
+        result['tasks'].update(copy.deepcopy(block['tasks']))
+        for key, value in block.get('datasets', {}).items():
+            if key in result['datasets'] and result['datasets'][key] != value:
+                raise ValueError('Conflicting dataset identity')
+            result['datasets'][key] = copy.deepcopy(value)
+    result['completed'] = True
+    compare_full_suite({'recovered': [result], 'reference': [reference]}, expected_tasks)
+    result['recovery_note'] = 'Aggregated saved full tasks; original interrupted reports remain unchanged. Not a single uninterrupted timing run.'
+    for field in ('memory', 'benchmark_peak_cuda_bytes', 'routing_audit'):
+        result.pop(field, None)
+    return result
 
 
 def compare_full_suite(variants, expected_tasks):

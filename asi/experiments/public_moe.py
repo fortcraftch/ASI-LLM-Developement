@@ -1,9 +1,9 @@
 """Pinned public OLMoE pilot: download, calibrate, classify and compare AirLLM."""
 import argparse
 import importlib.metadata
-import hashlib
 import json
 from pathlib import Path
+from asi.data.identity import file_sha256 as sha256
 import shutil
 import time
 
@@ -50,14 +50,6 @@ def read_lock(directory):
         if sha256(directory / filename) != lock['sha256'][filename]:
             raise ValueError('Snapshot content changed: ' + filename)
     return lock
-
-
-def sha256(path):
-    h = hashlib.sha256()
-    with path.open('rb') as stream:
-        for chunk in iter(lambda: stream.read(8 * 1024**2), b''):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def download(directory, report):
@@ -153,18 +145,49 @@ def calibrate(model, tokenizer, cache, examples, k, ram_budget=None):
     return collector.mapping(CATEGORIES, k), head.eval()
 
 
-def decode(model, ids, steps, device, after_step=None, stop_token_ids=None):
+def select_decode_token(logits, temperature=0.0, top_p=1.0, generator=None):
+    """Greedy or seeded nucleus sampling, retaining the threshold-crossing token."""
+    import math
     import torch
+    if not math.isfinite(temperature) or temperature < 0 or not 0 < top_p <= 1:
+        raise ValueError('Invalid temperature/top_p')
+    if temperature == 0:
+        return logits.argmax(-1, keepdim=True)
+    if generator is None:
+        raise ValueError('Sampling requires an explicit per-response generator')
+    values, indices = torch.sort(logits.float() / temperature, descending=True, stable=True)
+    probabilities = torch.softmax(values, dim=-1)
+    remove = probabilities.cumsum(-1) - probabilities >= top_p
+    probabilities = probabilities.masked_fill(remove, 0)
+    selected = torch.multinomial(probabilities, 1, generator=generator)
+    return indices.gather(-1, selected)
+
+
+def decode(model, ids, steps, device, after_step=None, stop_token_ids=None,
+           *, temperature=0.0, top_p=1.0, seed=None):
+    import torch
+    import math
+    if steps < 1 or ids.ndim != 2 or ids.shape[0] != 1 or ids.shape[1] < 1:
+        raise ValueError('Decode requires positive steps and one nonempty prompt')
+    if not math.isfinite(temperature) or temperature < 0 or not 0 < top_p <= 1:
+        raise ValueError('Invalid temperature/top_p')
+    if temperature > 0 and seed is None:
+        raise ValueError('Sampling requires an explicit seed')
+    device = torch.device(device)
+    generator = torch.Generator(device=device).manual_seed(seed) if temperature > 0 else None
+    def synchronize():
+        if device.type == 'cuda':
+            torch.cuda.synchronize(device)
     timings, generated, past = [], [], None
     current = ids.to(device)
     with torch.inference_mode():
         for step in range(steps):
-            torch.cuda.synchronize(device)
+            synchronize()
             start = time.perf_counter()
             output = model(input_ids=current, past_key_values=past, use_cache=True)
-            token = output.logits[:, -1].argmax(-1, keepdim=True)
+            token = select_decode_token(output.logits[:, -1], temperature, top_p, generator)
             past = output.past_key_values
-            torch.cuda.synchronize(device)
+            synchronize()
             timings.append(time.perf_counter() - start)
             generated.append(int(token.item()))
             current = token

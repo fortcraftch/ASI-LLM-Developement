@@ -183,3 +183,81 @@ Validación del código: 26 tests de recuperación y 13 del backend público sup
 Incluyen identidades, comparación de prompts, recuentos de bucles y equivalencia
 del backend/caché/KV en un modelo pequeño. Esta verificación no equivale a probar
 las hipótesis de la tabla ni a un benchmark de calidad general.
+
+
+## Control de decodificación preparado (16/10/2026; no ejecutado)
+
+Plan `configs/decoding_control_dev_v1.json`, ligado por SHA256 al plan de nueve
+preguntas de desarrollo del control de escala. El runner existente `decode_study`
+estudia caché del modelo local con greedy; no implementa este control OLMoE.
+Se ampliará el decoder compartido, conservando greedy como comportamiento por
+defecto y su equivalencia, en lugar de duplicar un bucle de generación.
+
+Dos brazos congelados (original y restricción nativa de 32) por nueve preguntas.
+Greedy una vez; muestreo temperatura 0.7/top-p 0.9 con tres semillas prefijadas:
+72 respuestas. Mismos pesos, máscaras, tokens, EOS y límite 256; sin penalización
+de repetición ni ajuste. El muestreo debe usar generador independiente por respuesta
+para reanudar sin cambiar los tokens. No se escoge una semilla ganadora.
+
+Se observarán solución central, seguimiento de instrucciones y repeticiones por
+separado. Menos repetición no implica recuperación. No atribuir cambios de CE a
+muestreo ni presentar estas preguntas ya inspeccionadas como test independiente.
+Primero faltan implementación, pruebas CPU y verificación del plan; no hay una
+nueva ejecución GPU iniciada ni resultados que añadir al paper.
+
+16/10, implementación parcial: el decoder compartido ya admite temperatura, top-p
+y semilla explícita por respuesta. Greedy mantiene argmax y sigue siendo el valor
+por defecto. Cuatro tests CPU cubren EOS, empate greedy, token que cruza el umbral
+nucleus, exclusión de cola y reproducción independiente del RNG global. Falta
+el runner del protocolo y validación real en GPU; no hay resultados nuevos.
+
+17/10: ejecutor integrado en `routing-scale`, sin otro bucle de generación.
+Lanzado `python -m asi routing-scale --plan configs/decoding_control_dev_v1.json
+--output results/decoding_control_dev_20261017/run`. Reanudación con `--resume`.
+Valida protocolo, hashes y cobertura por brazo/política/semilla/pregunta; guarda
+cada respuesta. Uso GPU concurrente del escritorio observado: tiempos descriptivos,
+no benchmark. Plan conserva su estado histórico previo; el progreso real está en
+`results/decoding_control_dev_20261017/run/report.json` y logs superiores.
+
+
+### Reconstrucción del informe de decodificación
+
+Al completar la tanda (no durante una cobertura parcial):
+
+```bash
+python -m asi mask-intervention-report results/decoding_control_dev_20261017/run/report.json
+```
+
+El analizador detecta `decoding_plan` y genera `analysis/summary.json` e
+`analysis/index.html` con todas las salidas escapadas como texto. Rechaza cobertura
+incompleta, duplicados, preguntas desparejadas, valores no finitos y transferencias
+en generación restringida. Resume las semillas dentro de cada pregunta y después
+las preguntas; no interpreta EOS o repetición como corrección. El campo
+`quality_review_pending` permanece verdadero hasta realizar una revisión semántica
+separada. No usar la tabla de pérdidas de este control como mejora por decodificación:
+la respuesta de referencia usada en teacher forcing es la misma.
+
+
+### Criterios de revisión del control de decodificación
+
+Fijados durante la ejecución, antes de leer las nuevas salidas completas. Son
+criterios de revisión exploratoria, no una métrica validada ni revisión ciega:
+el evaluador conoce el diseño y los ejemplos ya se han usado en desarrollo.
+
+1. **Respuesta central:** correcta / parcialmente correcta / incorrecta / ausente /
+   indeterminada. Justificar con el fragmento concreto; una palabra esperada en
+   una enumeración no basta. En matemáticas distinguir resultado de razonamiento.
+2. **Instrucciones:** cumple / no cumple / ambiguo. Valorar explícitamente el
+   formato solicitado, no confundir sintaxis de Python con corrección funcional.
+3. **Coherencia:** completa / error localizado / contradicción o bucle dominante /
+   truncada. Registrar el motivo, sin resolver silenciosamente ambigüedades.
+4. **Terminación:** EOS o límite, longitud generada y repetición automática.
+   Una respuesta vacía o demasiado corta no mejora por tener menos trigramas repetidos.
+5. **Código:** lectura estática solamente en esta máquina. Estado funcional
+   **no ejecutado**, hasta disponer del entorno aislado autorizado; no convertir
+   la inspección en una tasa de tests aprobados.
+
+Revisar todas las semillas, incluidas las malas. Comparar por pregunta y resumir
+las semillas dentro de ella; no escoger el mejor output. Informar desacuerdos
+entre corrección y repetición. La confirmación independiente y adjudicación
+humana siguen pendientes; no usaremos este diagnóstico para elegir un checkpoint.

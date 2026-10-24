@@ -77,3 +77,53 @@ python -m asi mask-intervention-report results/mask_intervention_20261010/report
 El informe parcial solo compara variantes con las seis preguntas completas.
 Las conclusiones necesitarán más preguntas y revisión semántica; este protocolo
 no sustituye los benchmarks ni prueba una arquitectura universalmente superior.
+
+## Control aleatorio añadido el 16/10/2026
+
+`--random-seeds 1337 2027 31415` añade tres conjuntos uniformes sin reemplazo, 32 candidatos por capa. Cada semilla comparte máscara entre categorías: control ciego a la categoría. Conserva 512 pares residentes, 8 activos y pesos nativos; no se elige la mejor semilla mirando calidad. Usar salida nueva: la identidad de protocolo pasa a v2 y no puede reanudar un informe v1 como si fuera equivalente. Plan congelado en `results/random_mask_control_20261016/plan.json`; ejecución terminada con 18 respuestas. La opción sin `--random-only` también ejecutaría los siete brazos históricos; no usarlos de nuevo para reconstruir el informe. Las seis preguntas históricas son diagnóstico, no test independiente.
+
+Ejecución incremental disponible: `--random-only --reuse-calibration results/mask_intervention_20261010/report.json`. Verifica identidad de modelo/fuentes, protocolo, cobertura y separación antes de copiar estadísticas; no copia respuestas. La tanda completada usó tres semillas y seis prompts (18 respuestas), salida `results/random_mask_control_20261016/run`, logs en la carpeta superior. No reejecuta los siete brazos. Comparación con históricos solo de calidad exploratoria; timings no emparejados temporalmente.
+
+Reconstruir la comparación sin inferencia: `python -m asi mask-intervention-report results/random_mask_control_20261016/run/report.json --compare-with results/mask_intervention_20261010/report.json`. Rechaza informes incompletos, prompts distintos, variantes duplicadas y transferencias dentro de inferencia. Agrupa por variante y presupuesto; no agrega tiempos ni trata semillas como preguntas independientes. CE/EOS requieren revisión de respuestas para valorar calidad.
+
+
+### Control global calibrado (16/10/2026)
+
+`--global-only` ejecuta únicamente `global32`: el promedio de frecuencias por
+ token de cada categoría de calibración determina 32 expertos por capa. Todas
+las categorías usan la misma máscara; las categorías tienen igual peso aunque
+sus textos tengan distinta longitud. Empates por índice de experto. Este control
+separa selección informada global de selección condicionada a la categoría.
+
+```powershell
+python -m asi mask-intervention --output results/global_mask_control_20261016/run --global-only --reuse-calibration results/mask_intervention_20261010/report.json
+```
+
+Plan congelado antes del lanzamiento en `results/global_mask_control_20261016/plan.json`.
+Ejecución terminada (6/6); no repetir para reconstruir resultados. Seis preguntas diagnósticas conocidas,
+top-8, presupuesto 512 pares capa/experto, pesos congelados. No es confirmación
+independiente ni recuperación; no comparar tiempos históricos como efecto causal.
+
+
+## Resultados consolidados y lo que falta
+
+| Control, todos con 512 pares residentes | CE media | Estado |
+|---|---:|---|
+| Categorías recalibradas | 2.515 | Completo |
+| Núcleo 8 + categoría 24 | 2.518 | Completo |
+| Categorías anteriores | 2.605 | Completo |
+| Primeras dos capas libres, presupuesto igualado | 2.629 | Completo |
+| Global calibrado sin categoría de entrada | 2.727 | Completo |
+| Aleatorias 1337 / 2027 / 31415 | 3.242 / 3.583 / 3.064 | Completo |
+
+La selección global usa igual peso por categoría de calibración, pero no consulta
+la categoría al responder. La ventaja descriptiva de categorías no demuestra
+especialización causal ni generalización. No se ha recuperado la calidad de
+las generaciones. Revisiones completas y textos: `results/random_mask_control_20261016/REVIEW.md`
+y `results/global_mask_control_20261016/REVIEW.md`, con los informes crudos conservados.
+
+No queda pendiente repetir estos controles. Falta confirmar con datos nuevos y
+protocolo reservado, comparar decodificación de forma controlada y posteriormente
+recuperación con referencias verificadas. El paso de validación de corpus está
+aplazado hasta que termine el entrenamiento de homelab por indicación de Marc.
+El paper del 16/10 incluye la tabla y límites; ver `paper/README.md` para el PDF vigente.

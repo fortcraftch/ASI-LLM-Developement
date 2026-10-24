@@ -3,6 +3,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import time
 
 from asi import ROOT
 from asi.taxonomy import Taxonomy, resolve, validate_profile, digest
@@ -94,12 +95,19 @@ def task_prompt(spec, task, answers):
 
 
 def execute(spec, plan, model, cache, names, encoder, device, max_new_tokens=64):
+    import torch
     from asi.runtime.adaptive import ContextMixture
     from asi.runtime.generation import generate
     if plan['status'] != 'ready' or plan['spec_sha256'] != digest(spec):
         raise ValueError('Execution needs a complete specification and its matching feasible plan')
     tasks = {task['id']: task for task in spec['tasks']}
     answers, records = {}, []
+    device = torch.device(device)
+    def synchronize():
+        if device.type == 'cuda':
+            torch.cuda.synchronize(device)
+    synchronize()
+    execution_started = time.perf_counter()
     initial = cache.snapshot()
     for task_id in plan['order']:
         task = tasks[task_id]
@@ -107,18 +115,28 @@ def execute(spec, plan, model, cache, names, encoder, device, max_new_tokens=64)
         if len(encoder.encode(prompt)) + max_new_tokens > model.config.block_size:
             raise ValueError('Task and dependencies exceed context; refusing silent truncation')
         pools = [names.index(pool) for pool in plan['task_pools'][task_id]]
+        synchronize()
+        started = time.perf_counter()
         cache.prepare(model, pools)
+        synchronize()
+        prepare_seconds = time.perf_counter() - started
         before = cache.snapshot()
+        started = time.perf_counter()
         with ContextMixture(model, pools):
             complete = generate(model, encoder, prompt, device, max_new_tokens, 0., 1)
+        synchronize()
+        generation_seconds = time.perf_counter() - started
         if not complete.startswith(prompt):
             raise ValueError('Generation did not preserve the complete task context')
         answers[task_id] = complete[len(prompt):]
         after = cache.snapshot()
         if any(after.get(key, 0) != before.get(key, 0) for key in ('loads', 'host_to_device_bytes', 'evictions')):
             raise RuntimeError('Unexpected expert transfer inside a task')
-        records.append({'task': task_id, 'pools': pools, 'prompt': prompt, 'answer': answers[task_id], 'before': before, 'after': after})
+        records.append({'task': task_id, 'pools': pools, 'prompt': prompt, 'answer': answers[task_id], 'before': before, 'after': after,
+                        'prepare_seconds': prepare_seconds, 'generation_seconds': generation_seconds})
     return {'answers': answers, 'steps': records, 'initial_cache': initial, 'final_cache': cache.snapshot(),
+            'execution_seconds': time.perf_counter() - execution_started,
+            'timing_scope': 'Synchronized task loop including prompt construction, preparation and generation; excludes model/cache initialization, classification and scheduling.',
             'combined_text': '\n\n'.join(f"[{task['id']}]\n{answers[task['id']]}" for task in spec['tasks']),
             'composition': 'Concatenation in original task order; no extra LLM synthesis or semantic verification.'}
 

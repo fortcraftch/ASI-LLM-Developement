@@ -24,13 +24,11 @@ Recoge las siete fases acordadas, dependencias, criterios de cierre y progreso.
 | Separar el efecto de restringir expertos del finetuning y medir cambios de tema | [Validación controlada de recuperación](docs/RECOVERY_VALIDATION.md) |
 | Investigar si la concentración de expertos persiste | [Seguimiento con tres semillas](docs/CAPACITY_FOLLOWUP.md) |
 | Avanzar el paso 9 con comparaciones controladas de expertos | [Piloto de capacidad y granularidad](docs/CAPACITY_PILOT.md) |
-| Ejecutar todos los benchmarks rápido, con un solo pool activo | [Evaluación por lotes y residencia completa](docs/BENCHMARKS_RAPIDOS.md) |
-| Avance de los pasos 1–4 y preparación del paso 9 | [Evaluación optimizada, SFT ampliado y recetas](docs/AVANCE_2026-10-05.md) |
+| Comparar ASI, DeepSeek y banco; ejecutar benchmarks y distinguir protocolos | [Guía principal de benchmarks](docs/BENCHMARKS_RAPIDOS.md) |
 | Retomar el checkpoint entrenado y comparar con GPT-2 | [Evaluación 37595](docs/EVALUACION_37595.md) |
 | Ajustar el modelo categorizado con respuestas OASST y compararlo antes/después | [Piloto SFT](docs/EVALUACION_37595.md#fine-tuning-supervisado-del-modelo-categorizado) |
 | Revisar las ideas del tutor y la posición del TFG | [Estado del arte, actualizado 08/10/2026](docs/ESTADO_ARTE_2026-10-04.md) |
 | Entender el proyecto y los términos | [Recapitulación](docs/RECAPITULACION.md) |
-| Incorporar el estado actual al documento académico | [Actualización del TFG, 29/09/2026](docs/TFG_estado_actual_2026-09-29.md) |
 | Saber qué está hecho, qué falta y qué archivo corresponde a cada paso | [Registro del TFG](docs/plan.json), consultable con `python -m asi plan` |
 | Diseñar e interpretar experimentos | [Protocolo](docs/PLAN.md) |
 | Ejecutar comandos y migrar scripts antiguos | [Uso](docs/USAGE.md) |
@@ -39,13 +37,17 @@ Recoge las siete fases acordadas, dependencias, criterios de cierre y progreso.
 | Decidir residencia, unir pools y usar caché INT8 GPU | [Runtime adaptativo](docs/ADAPTIVE.md) |
 | Compartir categorías entre modelos y clasificador | [Taxonomía](docs/TAXONOMY.md) |
 | Entrenar el clasificador y planificar subtareas | [Ejemplos y tareas](docs/CLASSIFIER_DATA_TASKS.md) |
-| Comparar los tres modelos entrenados | [Batería controlada](docs/COMPARISON.md) |
+| Estudiar residencia y restricción de expertos (matriz distinta de la suite local) | [Matriz experimental de residencia](docs/COMPARISON.md) |
 | Probar OLMoE público frente a AirLLM | [Piloto público](docs/PUBLIC_MOE.md) |
 | Investigar la pérdida de coherencia al fijar expertos | [Estudio de routing](docs/ROUTING_STUDY.md) |
 | Recuperar lenguaje con routers y LoRA de expertos, bajo varias selecciones | [Fine-tuning de recuperación](docs/RECOVERY.md) |
 | Comparar los tres ajustes con datos públicos, profesor y varias semillas | [Estudio de recuperación ampliado](docs/RECOVERY_V3.md) |
 | Consultar resultados ya obtenidos | [Hallazgos](docs/FINDINGS.md) |
 | Entender las diferencias con AirLLM | [Trabajo relacionado](docs/AIRLLM.md) |
+
+Las notas fechadas de [05/10](docs/AVANCE_2026-10-05.md) y el
+[estado del TFG de 29/09](docs/TFG_estado_actual_2026-09-29.md) son históricos.
+Para el estado vigente se utiliza la hoja de ruta, no esos cortes temporales.
 
 El registro distingue implementación, pruebas sintéticas y evidencia experimental.
 No se ha demostrado todavía que fijar expertos conserve la calidad de los modelos

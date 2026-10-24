@@ -46,6 +46,84 @@ def build_masks(stats, old):
     return masks
 
 
+def random_controls(old, seeds):
+    """Uniform candidate sets, independent of calibration scores or answers.
+
+    A seed selects one common set per layer for every category. This tests
+    whether category-based selection improves on a category-blind allocation.
+    """
+    if len(set(seeds)) != len(seeds):
+        raise ValueError('Random control seeds must be unique')
+    result = {}
+    categories = sorted(old)
+    if not categories:
+        raise ValueError('At least one category required')
+    layers = sorted(old[categories[0]], key=int)
+    for c in categories:
+        if set(old[c]) != set(layers) or any(len(old[c][l]['experts']) != 32 for l in layers):
+            raise ValueError('Random32 control requires matching 32-candidate layer budgets')
+    for seed in seeds:
+        rng = random.Random(seed)
+        sets = {l: sorted(rng.sample(range(64), 32)) for l in layers}
+        result[f'random32_seed{seed}'] = {
+            c: {l: {'experts': list(sets[l]), 'weights': [1/32]*32} for l in layers}
+            for c in categories}
+    return result
+
+
+def global_control(stats):
+    """One shared mask ranked by mean per-token usage across calibration categories.
+
+    Categories receive equal weight; prompt categories never select a mask.
+    Expert-index tie breaking is deterministic and does not inspect evaluation.
+    """
+    import math
+    import copy
+    categories = sorted(stats)
+    if not categories:
+        raise ValueError('Empty calibration')
+    for layers in stats.values():
+        if set(layers) != {str(l) for l in range(16)}:
+            raise ValueError('Expected 16 calibration layers')
+        for row in layers.values():
+            if not math.isfinite(row['tokens']) or row['tokens'] <= 0 or len(row['counts']) != 64:
+                raise ValueError('Invalid calibration dimensions or token count')
+            if any(not math.isfinite(n) or n < 0 for n in row['counts']):
+                raise ValueError('Invalid expert counts')
+    mask = {}
+    for layer in map(str, range(16)):
+        scores = [sum(stats[c][layer]['counts'][e] / stats[c][layer]['tokens']
+                      for c in categories) / len(categories) for e in range(64)]
+        ids = sorted(range(64), key=lambda e: (-scores[e], e))[:32]
+        mask[layer] = {'experts': ids, 'weights': [1/32]*32}
+    return {'global32': {c: copy.deepcopy(mask) for c in categories}}
+
+
+def reuse_calibration(report, donor):
+    """Copy completed calibration only, never donor outputs or completion state."""
+    import copy
+    for key in ('source', 'files'):
+        if donor['identity'][key] != report['identity'][key]:
+            raise ValueError('Calibration donor identity mismatch: ' + key)
+    for key in ('per_category', 'batch_size', 'active', 'max_length', 'seed'):
+        if donor['identity']['protocol'][key] != report['identity']['protocol'][key]:
+            raise ValueError('Calibration donor protocol mismatch: ' + key)
+    examples = donor['calibration_examples']
+    ids = [r['id'] for r in examples]
+    if not ids or len(set(ids)) != len(ids) or set(ids) != set(donor['calibration_done']):
+        raise ValueError('Calibration donor is incomplete or duplicated')
+    if set(ids) & {r['id'] for r in donor['evaluation_examples']}:
+        raise ValueError('Calibration donor overlaps evaluation')
+    for category in {r['category'] for r in examples}:
+        layers = donor['stats'][category]
+        if set(layers) != {str(l) for l in range(16)}:
+            raise ValueError('Incomplete donor layers')
+        if any(v['tokens'] <= 0 or len(v['counts']) != 64 for v in layers.values()):
+            raise ValueError('Invalid donor statistics')
+    for key in ('calibration_examples', 'evaluation_examples', 'calibration_done', 'stats'):
+        report[key] = copy.deepcopy(donor[key])
+
+
 def select_calibration(corpus, old_ids, rejected, categories, tokenizer, per_category, max_length):
     rng = random.Random(20261010)
     selected = []
@@ -77,7 +155,16 @@ def main():
     p.add_argument('--new-tokens', type=int, default=256)
     p.add_argument('--resume', action='store_true')
     p.add_argument('--calibrate-only', action='store_true')
+    p.add_argument('--random-seeds', type=int, nargs='+', default=[],
+                   help='Add category-blind random32 controls; use a new output directory')
+    p.add_argument('--reuse-calibration', type=Path)
+    p.add_argument('--random-only', action='store_true')
+    p.add_argument('--global-only', action='store_true', help='Only category-blind calibrated global32 control')
     args = p.parse_args()
+    if args.random_only and not args.random_seeds:
+        p.error('--random-only requires --random-seeds')
+    if args.global_only and (args.random_only or args.random_seeds):
+        p.error('--global-only cannot be combined with random controls')
     if min(args.calibration_per_category, args.batch_size, args.new_tokens) < 1:
         p.error('Counts must be positive')
     report_path = args.output / 'report.json'
@@ -99,6 +186,18 @@ def main():
                 'protocol': {'per_category': args.calibration_per_category, 'batch_size': args.batch_size,
                              'new_tokens': args.new_tokens, 'active': 8, 'max_length': 384,
                              'seed': 20261010, 'version': 1}}
+    if args.random_seeds:
+        if len(set(args.random_seeds)) != len(args.random_seeds):
+            p.error('Random seeds must be unique')
+        identity['protocol'].update(version=2, random_seeds=args.random_seeds,
+                                    random_control='category-blind uniform32 per layer')
+    if args.reuse_calibration:
+        identity['calibration_donor_sha256'] = sha256(args.reuse_calibration)
+    if args.random_only:
+        identity['protocol']['random_only'] = True
+    if args.global_only:
+        identity['protocol'].update(version=3, global_only=True,
+                                    global_control='mean category-normalized per-token usage; index tie break')
     if old['source_identity'] != identity['source'] or paired['source_identity'] != identity['source']:
         raise ValueError('Model identity mismatch')
     report = read(report_path) if report_path.exists() else {
@@ -113,6 +212,11 @@ def main():
     if report['completed']:
         print('Already completed:', report_path, flush=True)
         return
+    if args.reuse_calibration and 'calibration_examples' not in report:
+        reuse_calibration(report, read(args.reuse_calibration))
+        if report['evaluation_examples'] != paired['examples']:
+            raise ValueError('Donor evaluation differs from frozen diagnostic')
+        durable_save(report_path, report)
     model, tokenizer, store = load_disk_backed(args.model_dir, 2 * 2**30, 12 * 2**30)
     model.requires_grad_(False)
     for layer in model.model.layers:
@@ -159,7 +263,10 @@ def main():
                 report['calibration_done'].extend(r['id'] for r in batch)
                 durable_save(report_path, report)
                 print(f"Calibration {len(report['calibration_done'])}/{len(report['calibration_examples'])}: {time.perf_counter()-began:.1f}s", flush=True)
-        masks = build_masks(report['stats'], old['mappings']['32'])
+        masks = {} if (args.random_only or args.global_only) else build_masks(report['stats'], old['mappings']['32'])
+        if args.global_only:
+            masks.update(global_control(report['stats']))
+        masks.update(random_controls(old['mappings']['32'], args.random_seeds))
         report['masks'] = masks
         durable_save(report_path, report)
         if args.calibrate_only:
@@ -197,7 +304,7 @@ def main():
                           'rss_bytes': psutil.Process().memory_info().rss}
                 report['records'].append(record)
                 durable_save(report_path, report)
-                print(f"Evaluation {len(report['records'])}/42 {variant} {row['id']}: CE={ce_value:.3f}", flush=True)
+                print(f"Evaluation {len(report['records'])}/{len(masks)*len(report['evaluation_examples'])} {variant} {row['id']}: CE={ce_value:.3f}", flush=True)
         report['completed'] = True
         durable_save(report_path, report)
     finally:

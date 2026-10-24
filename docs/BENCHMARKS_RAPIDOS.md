@@ -6,6 +6,30 @@ todos los expertos residentes, pero `classified` activa únicamente el pool eleg
 para cada pregunta (dos expertos por capa en `model_37595.pt`). El backbone y los
 expertos compartidos mantienen su funcionamiento habitual.
 
+## Referencia vigente y protocolos separados
+
+La comparación principal del paper reúne ASI categorizado, DeepSeek final
+19072 y el banco en `results/full_suite_20261012/comparison.json`: 19 tareas,
+66.832 ejemplos por variante. Se publica una sola tabla conjunta
+(`paper/full_suite_table.tex`) y su gráfica, generadas por `paper/build_evidence.py`.
+El banco no necesita una segunda tabla con los mismos resultados.
+
+Estos bloques responden a preguntas distintas y no deben promediarse juntos:
+
+| Bloque | Pregunta | Condición para comparar |
+|---|---|---|
+| Suite completa de tres arquitecturas | Calidad descriptiva de checkpoints | Mismos splits, recuentos y evaluador; entrenamiento/capacidad no equivalentes |
+| ASI categorizado/E0/E200/E1000 | Efecto de permitir y adaptar el router | Misma base; solo E cambia; suite ya inspeccionada, exploratoria |
+| Residencia y generación | Memoria, transferencias y latencia | Misma política activa, precisión y carga de trabajo |
+| Pilotos de 100 ejemplos | Diagnóstico histórico y controles de precisión | No mezclar con la suite completa ni sustituir sus resultados |
+| Recuperación OLMoE | Calidad original/restringida/recuperada | Otro modelo, corpus y protocolo; no comparable directamente con estas puntuaciones |
+
+La gráfica exclusiva del banco muestra únicamente el control de memoria;
+la calidad completa se consulta en la comparación conjunta. Los informes
+históricos se conservan como evidencia, no como recomendaciones de ejecución.
+La matriz antigua de [COMPARISON.md](COMPARISON.md) corresponde a residencia y
+restricción en tres condiciones, no a estas tres arquitecturas locales.
+
 ## Batería completa en homelab
 
 Desde la raíz del repositorio, con el entorno activado y el proyecto GPT-2 vecino:

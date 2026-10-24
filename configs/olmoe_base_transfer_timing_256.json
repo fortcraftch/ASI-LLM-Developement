@@ -1,0 +1,20 @@
+{
+  "model_dir": "public_models/olmoe",
+  "study": "results/recovery_calibration_batched_v3/report.json",
+  "corpus": "results/recovery_corpus_v3/corpus.json",
+  "seed": 1337,
+  "new_tokens": 32,
+  "modes": [
+    "native"
+  ],
+  "expert_ram_gib": 2,
+  "process_ram_gib": 12,
+  "cases": [
+    {
+      "category": "computer_science_software_engineering",
+      "prompt": "Explain the difference between a Python list and a generator."
+    }
+  ],
+  "profile_transfers": true,
+  "native_cache_experts": 256
+}

@@ -29,6 +29,31 @@ def signature(text):
     return re.sub(r'\s+', ' ', re.sub(r'\d+(?:\.\d+)?', '<n>', text.casefold())).strip()
 
 
+def exposure_conflicts(candidates, historical_rows):
+    """Find identifiable historical exposure; absence is not semantic independence."""
+    def keys(row):
+        result = {('id', str(row[k])) for k in ('id', 'parent_id') if row.get(k)}
+        for field in ('template_group', 'parent_template_group', 'prompt'):
+            if row.get(field):
+                result.add(('template', signature(row[field])))
+        if all(row.get(k) is not None for k in ('source', 'source_split', 'source_id')):
+            result.add(('source', str((row['source'], row['source_split'], row['source_id']))))
+        return result
+    exposed = {}
+    for row in historical_rows:
+        for key in keys(row):
+            exposed.setdefault(key, set()).add(row['id'])
+    conflicts = []
+    for row in candidates:
+        matches = keys(row) & exposed.keys()
+        if row.get('train_only') and row.get('split') != 'train':
+            matches.add(('train_only', 'invalid holdout assignment'))
+        if matches:
+            conflicts.append({'id': row['id'], 'reasons': sorted({k[0] for k in matches}),
+                              'historical_ids': sorted({x for k in matches for x in exposed.get(k, ())})})
+    return conflicts
+
+
 def convert(source, row, origin, index):
     question = row.get('question', row.get('text', '')).strip()
     support = row.get('support', '').strip()
@@ -60,7 +85,7 @@ def convert(source, row, origin, index):
     return result
 
 
-def build(raw, tokenizer, max_length=384, train_cap=1500, eval_cap=60):
+def build(raw, tokenizer, max_length=384, train_cap=1500, eval_cap=60, historical_rows=()):
     from asi.experiments.public_moe import input_ids
     candidates, rejected = [], Counter()
     for source, origin, index, row in raw:
@@ -79,6 +104,10 @@ def build(raw, tokenizer, max_length=384, train_cap=1500, eval_cap=60):
             continue
         converted.update(token_count=len(prompt)+len(answer), answer_tokens=len(answer))
         candidates.append(converted)
+    conflicts = exposure_conflicts(candidates, historical_rows)
+    exposed_ids = {r['id'] for r in conflicts}
+    rejected['historical_exposure'] = len(exposed_ids)
+    candidates = [r for r in candidates if r['id'] not in exposed_ids]
     # Reject every member of a scaffold duplicated across partitions, not just one side.
     memberships = {}
     for row in candidates:
@@ -120,6 +149,8 @@ def main():
     p.add_argument('--max-length',type=int,default=384)
     p.add_argument('--train-per-category',type=int,default=1500)
     p.add_argument('--eval-per-category',type=int,default=60)
+    p.add_argument('--exclude-corpus',type=Path,nargs='+',default=[],
+                   help='Historical corpora to exclude by identity, ancestry and normalized template')
     args=p.parse_args()
     if args.output.exists() or min(args.max_length,args.train_per_category,args.eval_per_category)<1:
         p.error('Use a fresh output and positive limits')
@@ -142,7 +173,14 @@ def main():
             origin=path.stem.split('-')[0]
             for i,row in enumerate(pq.read_table(path).to_pylist()): raw.append((source,origin,i,row))
     tokenizer=AutoTokenizer.from_pretrained(args.model_dir,local_files_only=True)
-    corpus=build(raw,tokenizer,args.max_length,args.train_per_category,args.eval_per_category)
+    historical=[]; exposure_sources={}
+    for path in args.exclude_corpus:
+        payload=path.read_bytes()
+        historical.extend(json.loads(payload)['examples'])
+        exposure_sources[str(path)]=hashlib.sha256(payload).hexdigest()
+    corpus=build(raw,tokenizer,args.max_length,args.train_per_category,args.eval_per_category,historical)
+    corpus['excluded_corpora_sha256']=exposure_sources
+    corpus['exposure_scope']='Only supplied historical corpora; not proof of semantic independence or pretraining absence'
     corpus['source_file_sha256']=files
     corpus['teacher_dense_fp32_bytes']=sum(r['answer_tokens'] for r in corpus['examples'])*len(tokenizer)*4
     args.output.parent.mkdir(parents=True,exist_ok=True)

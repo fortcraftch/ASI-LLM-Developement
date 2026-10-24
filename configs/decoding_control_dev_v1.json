@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "purpose": "development_decoding_control",
+  "status": "protocol_frozen_runner_pending",
+  "test_frozen": false,
+  "parent_plan": "configs\\routing_scale_dev_v1.json",
+  "parent_sha256": "bcdb201ab7730dce63cf9e204a16455f9d5e0e1d493530ecda4097ef65943b0b",
+  "arms": [
+    "original",
+    "restricted"
+  ],
+  "policies": [
+    {
+      "name": "greedy",
+      "temperature": 0,
+      "top_p": 1,
+      "seeds": [
+        1337
+      ]
+    },
+    {
+      "name": "sample",
+      "temperature": 0.7,
+      "top_p": 0.9,
+      "seeds": [
+        1337,
+        2027,
+        31415
+      ]
+    }
+  ],
+  "protocol": {
+    "active": 8,
+    "restricted_resident_per_layer": 32,
+    "cache_capacity": 512,
+    "mixture": "native restricted probabilities; no renormalization",
+    "new_tokens": 256,
+    "stop_at_eos": true,
+    "repetition_penalty": 1,
+    "no_repeat_ngram_size": 0,
+    "adaptation": "none",
+    "order_seed": 20261016,
+    "dtype": "BF16 autocast; FP32 gate"
+  },
+  "example_ids": [
+    "mbpp_validation_56",
+    "mbpp_test_322",
+    "mbpp_train_61",
+    "sciq_train_2995",
+    "sciq_train_7224",
+    "sciq_validation_633",
+    "gsm8k_train_7005",
+    "gsm8k_train_918",
+    "gsm8k_train_6592"
+  ],
+  "expected_records": 72,
+  "acceptance": [
+    "Same frozen weights, mapping and prompt tokens across policies.",
+    "Per-response independent seeded generator; resume must reproduce sampling.",
+    "Greedy compatibility test against existing decoder.",
+    "No expert loads during restricted response; original cache may swap.",
+    "Do not execute generated code on host.",
+    "Store every seed and output; report per prompt and policy, never select best seed."
+  ],
+  "limitations": [
+    "Nine already inspected development prompts, not an independent test.",
+    "Sampling can reduce repetition without restoring correctness.",
+    "Temperature and nucleus jointly define one policy; no claim isolating their individual effects.",
+    "No reference CE improvement attributed to decoding: teacher-forced logits unchanged.",
+    "Variable output lengths and original swapping prevent a simple speedup claim.",
+    "Recovery variants deferred until validated training; this control does not validate corpus."
+  ]
+}

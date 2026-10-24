@@ -54,3 +54,7 @@ Thumbs.db
 log_domain/
 paper/
 output/
+
+external/colibri/
+external/colibri_release/
+external/toolchains/

@@ -1,17 +1,10 @@
 """Offline OLMoE residency calibration from dev quality and standalone measurements."""
 import argparse
-import hashlib
 import json
 import math
 from pathlib import Path
+from asi.data.identity import file_sha256 as file_hash
 import statistics
-
-
-def file_hash(path):
-    h=hashlib.sha256()
-    with path.open('rb') as f:
-        for chunk in iter(lambda:f.read(1024**2),b''): h.update(chunk)
-    return h.hexdigest()
 
 
 def build_profiles(training, evaluations):

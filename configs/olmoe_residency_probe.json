@@ -1,0 +1,28 @@
+{
+  "model_dir": "public_models/olmoe",
+  "study": "results/recovery_calibration_batched_v3/report.json",
+  "corpus": "results/recovery_corpus_v3/corpus.json",
+  "seed": 1337,
+  "new_tokens": 32,
+  "modes": [
+    "native",
+    "32",
+    "16"
+  ],
+  "expert_ram_gib": 2,
+  "process_ram_gib": 12,
+  "cases": [
+    {
+      "category": "computer_science_software_engineering",
+      "prompt": "Explain the difference between a Python list and a generator."
+    },
+    {
+      "category": "mathematics_statistics",
+      "prompt": "Explain why the derivative of x squared is 2x."
+    },
+    {
+      "category": "life_sciences_biology",
+      "prompt": "Explain how photosynthesis provides energy for an ecosystem."
+    }
+  ]
+}

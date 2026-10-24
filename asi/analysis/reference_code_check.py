@@ -92,6 +92,33 @@ def check_one(docker, image_id, job, timeout):
                 seconds=time.monotonic()-started, answer_sha256=job['answer_sha256'])
 
 
+def validate_execution_report(report, corpus_path, cases_path, runner_path):
+    """Validate returned evidence; never execute references or approve the corpus."""
+    jobs = prepare(corpus_path, cases_path)
+    if (report.get('kind') != 'curated_reference_assertions'
+            or report.get('completed') is not True or report.get('executed') is not True
+            or report.get('error')):
+        raise ValueError('Execution is incomplete or failed')
+    for key, path in [('corpus_sha256', corpus_path), ('cases_sha256', cases_path),
+                      ('runner_sha256', runner_path)]:
+        if report.get(key) != digest(path):
+            raise ValueError('Execution source mismatch: '+key)
+    if not re.fullmatch(r'sha256:[0-9a-f]{64}', report.get('image_id', '')):
+        raise ValueError('Missing immutable container image identity')
+    expected = {j['id']: j for j in jobs}
+    rows = report.get('results', [])
+    ids = [r['id'] for r in rows]
+    if len(ids) != len(set(ids)) or set(ids) != set(expected):
+        raise ValueError('Execution coverage mismatch')
+    for row in rows:
+        if row.get('answer_sha256') != expected[row['id']]['answer_sha256']:
+            raise ValueError('Executed answer mismatch')
+        if row.get('status') != 'passed' or row.get('exit_code') != 0:
+            raise ValueError('Reference did not pass: '+row['id'])
+    return dict(verified_cases=len(rows), ready_for_training=False,
+                scope='Returned report matches pinned inputs; not independent attestation or corpus approval')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--corpus', type=Path, default=Path('results/recovery_corpus_v3/corpus.json'))
@@ -100,9 +127,30 @@ def main():
     parser.add_argument('--image', default='python:3.11-slim')
     parser.add_argument('--timeout', type=float, default=10)
     parser.add_argument('--dry-run', action='store_true')
+    parser.add_argument('--validate-report', type=Path,
+                        help='Validate returned Docker evidence without running any code')
+    parser.add_argument('--runner', type=Path,
+                        help='Exact archived runner used on homelab (required for validation)')
     args = parser.parse_args()
     if args.output.exists() or args.timeout <= 0:
         parser.error('Use a new output file and a positive timeout')
+    if args.validate_report:
+        if args.dry_run or args.runner is None:
+            parser.error('--validate-report requires --runner and excludes --dry-run')
+        returned = json.loads(args.validate_report.read_text(encoding='utf-8'))
+        verified = validate_execution_report(returned, args.corpus, args.cases, args.runner)
+        verified['report_sha256'] = digest(args.validate_report)
+        verified['corpus_sha256'] = digest(args.corpus)
+        verified['cases_sha256'] = digest(args.cases)
+        verified['runner_sha256'] = digest(args.runner)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open('x', encoding='utf-8') as stream:
+            json.dump(verified, stream, indent=2)
+            stream.write('\n')
+        print(json.dumps(verified, indent=2))
+        return
+    if args.runner is not None:
+        parser.error('--runner is only used with --validate-report')
     jobs = prepare(args.corpus, args.cases)
     report = dict(schema=1, kind='curated_reference_assertions', completed=False,
                   executed=False, corpus_sha256=digest(args.corpus), cases_sha256=digest(args.cases),

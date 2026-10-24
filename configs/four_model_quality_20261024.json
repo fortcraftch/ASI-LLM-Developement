@@ -1,0 +1,125 @@
+{
+  "seed": 1337,
+  "max_new_tokens": 128,
+  "prompts": [
+    {
+      "id": "technology_1",
+      "pool": "technology",
+      "prompt": "Explain why a Python dictionary is useful for looking up a value by a key. Answer in one sentence.\n\nAnswer:",
+      "check": "one_sentence",
+      "reference": "Associates keys with values and supports efficient lookup."
+    },
+    {
+      "id": "technology_2",
+      "pool": "technology",
+      "prompt": "Sort the numbers 9, 2, 5 in ascending order. Output only the sorted numbers, separated by commas.\n\nAnswer:",
+      "check": "exact",
+      "reference": "2, 5, 9"
+    },
+    {
+      "id": "math_physics_1",
+      "pool": "math_physics",
+      "prompt": "Explain the difference between speed and velocity. Answer in one sentence.\n\nAnswer:",
+      "check": "one_sentence",
+      "reference": "Speed is scalar; velocity includes direction."
+    },
+    {
+      "id": "math_physics_2",
+      "pool": "math_physics",
+      "prompt": "A box contains 7 red balls and 6 blue balls. How many balls are in the box? Output only the number.\n\nAnswer:",
+      "check": "exact",
+      "reference": "13"
+    },
+    {
+      "id": "biology_1",
+      "pool": "biology",
+      "prompt": "Explain the role of chlorophyll in photosynthesis. Answer in one sentence.\n\nAnswer:",
+      "check": "one_sentence",
+      "reference": "Absorbs light energy for photosynthesis."
+    },
+    {
+      "id": "biology_2",
+      "pool": "biology",
+      "prompt": "Name two structures found in a typical plant cell. Use exactly two bullet points, each starting with a hyphen.\n\nAnswer:",
+      "check": "two_bullets",
+      "reference": "Two valid plant cell structures, e.g. cell wall and chloroplast."
+    },
+    {
+      "id": "health_1",
+      "pool": "health",
+      "prompt": "Explain why washing hands with soap helps prevent infections. Answer in one sentence.\n\nAnswer:",
+      "check": "one_sentence",
+      "reference": "Removes microbes and reduces their transmission."
+    },
+    {
+      "id": "health_2",
+      "pool": "health",
+      "prompt": "Name two everyday habits that support good health. Use exactly two bullet points, each starting with a hyphen.\n\nAnswer:",
+      "check": "two_bullets",
+      "reference": "Two reasonable habits, e.g. regular activity and sufficient sleep."
+    },
+    {
+      "id": "environment_1",
+      "pool": "environment",
+      "prompt": "Explain how recycling aluminium can reduce environmental impact. Answer in one sentence.\n\nAnswer:",
+      "check": "one_sentence",
+      "reference": "Reduces energy/resource use compared with producing new aluminium."
+    },
+    {
+      "id": "environment_2",
+      "pool": "environment",
+      "prompt": "Name two renewable energy sources. Use exactly two bullet points, each starting with a hyphen.\n\nAnswer:",
+      "check": "two_bullets",
+      "reference": "Two renewable sources, e.g. solar and wind."
+    },
+    {
+      "id": "society_economy_1",
+      "pool": "society_economy",
+      "prompt": "Explain the difference between saving money and borrowing money. Answer in one sentence.\n\nAnswer:",
+      "check": "one_sentence",
+      "reference": "Saving sets aside owned money; borrowing incurs a repayment obligation."
+    },
+    {
+      "id": "society_economy_2",
+      "pool": "society_economy",
+      "prompt": "An item costs 20 dollars and its price is reduced by 5 dollars. What is the new price in dollars? Output only the number.\n\nAnswer:",
+      "check": "exact",
+      "reference": "15"
+    },
+    {
+      "id": "history_arts_1",
+      "pool": "history_arts",
+      "prompt": "Explain why historians compare multiple sources about the same event. Answer in one sentence.\n\nAnswer:",
+      "check": "one_sentence",
+      "reference": "Corroboration and identification of bias or conflicting evidence."
+    },
+    {
+      "id": "history_arts_2",
+      "pool": "history_arts",
+      "prompt": "Name two visual art forms. Use exactly two bullet points, each starting with a hyphen.\n\nAnswer:",
+      "check": "two_bullets",
+      "reference": "Two valid visual art forms, e.g. painting and sculpture."
+    },
+    {
+      "id": "education_language_1",
+      "pool": "education_language",
+      "prompt": "Explain why giving a learner specific feedback can help them improve. Answer in one sentence.\n\nAnswer:",
+      "check": "one_sentence",
+      "reference": "Identifies actionable errors or strengths to guide improvement."
+    },
+    {
+      "id": "education_language_2",
+      "pool": "education_language",
+      "prompt": "Rewrite this sentence in the past tense: \"The child walks to school.\" Output only the rewritten sentence.\n\nAnswer:",
+      "check": "exact",
+      "reference": "The child walked to school."
+    }
+  ],
+  "rubric": {
+    "coherence": "0 incoherent; 1 understandable with drift/contradictions; 2 coherent and relevant throughout",
+    "correctness": "0 wrong/no answer; 1 partially correct; 2 correct central answer without material errors",
+    "instruction": "Automatic structural proxy plus manual full instruction review; not interchangeable",
+    "review": "Unblinded exploratory assistant review, not independent human evaluation"
+  },
+  "protocol": "Base checkpoints from SDPA audit; same raw prompt; greedy; stop at EOS; SDPA; FP32 weights/BF16 autocast; no sampling or repetition penalty; category preassigned, classifier excluded"
+}
